@@ -19,288 +19,215 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
-        }
-
-        .header {
             text-align: center;
-            margin-bottom: 40px;
-            color: #333333;
         }
 
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            font-weight: 600;
         }
 
-        .header p {
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
             font-size: 1.2rem;
-            opacity: 0.9;
         }
 
-        .upload-section {
-            background: #f8f9fa;
-            border-radius: 20px;
+        .upload-container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
             padding: 30px;
-            margin-bottom: 40px;
-            border: 1px solid #e9ecef;
+            margin-bottom: 30px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
-        .upload-area {
-            border: 2px dashed #ced4da;
-            border-radius: 15px;
-            padding: 40px;
-            text-align: center;
+        .upload-btn {
+            background-color: #ff6b6b;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            background: #ffffff;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+            margin: 10px;
         }
 
-        .upload-area:hover {
-            border-color: #adb5bd;
-            background: #f8f9fa;
+        .upload-btn:hover {
+            background-color: #ff5252;
         }
 
-        .upload-area input {
-            display: none;
-        }
-
-        .upload-text {
-            color: #495057;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-        }
-
-        .upload-hint {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-
-        .photo-grid {
+        .sort-container {
+            margin-bottom: 20px;
             display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .sort-btn {
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .sort-btn:hover, .sort-btn.active {
+            background-color: #ff6b6b;
+            color: white;
+        }
+
+        .photos-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-            justify-content: space-between;
+            margin-top: 30px;
         }
 
-        .photo-item {
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            opacity: 0;
-            transform: translateY(30px);
-            animation: fadeInUp 0.6s ease forwards;
-            width: calc(50% - 10px);
-            margin-bottom: 20px;
-        }
-
-        .photo-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .photo-frame {
-            position: relative;
-            border-radius: 15px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .photo-frame::before {
-            content: '';
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            right: -5px;
-            bottom: -5px;
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
-            border-radius: 20px;
-            z-index: -1;
-            opacity: 0.7;
-        }
-
-        .photo-frame img {
-            width: 100%;
-            height: 250px;
-            object-fit: cover;
-            display: block;
+        .photo-card {
+            background-color: white;
             border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .photo-img {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
         }
 
         .photo-date {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.7);
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+
+        .photo-memory {
+            padding: 15px;
+            text-align: left;
+            color: #333;
+        }
+
+        .photo-memory-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+
+        .save-memory-btn {
+            background-color: #4CAF50;
             color: white;
             padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            backdrop-filter: blur(10px);
-        }
-
-        .memory-section {
-            margin-top: 20px;
-        }
-
-        .memory-label {
-            color: #555;
-            font-weight: 600;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }
-
-        .memory-input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e1e8ed;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 80px;
-            transition: border-color 0.3s ease;
-            background: #fafafa;
-        }
-
-        .memory-input:focus {
-            outline: none;
-            border-color: #667eea;
-            background: white;
-        }
-
-        .memory-input::placeholder {
-            color: #aaa;
-            font-style: italic;
-        }
-
-        .sort-controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .sort-btn {
-            background: #f1f3f5;
-            border: 1px solid #dee2e6;
-            color: #495057;
-            padding: 10px 20px;
-            border-radius: 25px;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            margin-top: 10px;
             font-size: 0.9rem;
         }
 
-        .sort-btn:hover,
-        .sort-btn.active {
-            background: #e9ecef;
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        .save-memory-btn:hover {
+            background-color: #45a049;
         }
 
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .no-photos {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            padding: 60px 20px;
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow: auto;
+            justify-content: center;
+            align-items: center;
         }
 
+        .modal-content {
+            max-width: 80%;
+            max-height: 80%;
+        }
 
+        .modal-img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .heart-icon {
+            color: #ff6b6b;
+            font-size: 1.5rem;
+            margin: 0 5px;
+        }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .photo-frame img {
-                height: 200px;
-            }
-            
-            .upload-section {
-                padding: 20px;
-            }
-            
-            .photo-item {
-                padding: 15px;
-                width: 100%;
+            .photos-container {
+                grid-template-columns: 1fr;
             }
         }
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
-    <!-- 
-    注意：为了让跨设备同步正常工作，请确保Firebase安全规则设置如下：
-    
-    Firestore规则：
-    rules_version = '2';
-    service cloud.firestore {
-      match /databases/{database}/documents {
-        match /{document=**} {
-          allow read, write: if true;
-        }
-      }
-    }
-    
-    Storage规则：
-    rules_version = '2';
-    service firebase.storage {
-      match /b/{bucket}/o {
-        match /{allPaths=**} {
-          allow read, write: if true;
-        }
-      }
-    }
-    -->
-    
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>💕 我们的回忆</h1>
-            <p>记录每一个美好瞬间</p>
+        <h1><span class="heart-icon">❤️</span>我们的回忆<span class="heart-icon">❤️</span></h1>
+        <p class="subtitle">记录每一个美好瞬间</p>
+        
+        <div class="upload-container">
+            <label for="photo-upload" class="upload-btn">
+                📷 点击上传照片
+            </label>
+            <input type="file" id="photo-upload" accept="image/*" style="display: none;" multiple>
+            <p>支持点击，将自动调整并添加到相册</p>
         </div>
-
-        <div class="upload-section">
-            <div class="upload-area" onclick="document.getElementById('photoInput').click()">
-                <input type="file" id="photoInput" multiple accept="image/*">
-                <div class="upload-text">📸 点击上传照片</div>
-                <div class="upload-hint">支持多选，将按照拍摄时间自动排序</div>
-            </div>
+        
+        <div class="sort-container">
+            <button class="sort-btn" onclick="changeSort('date-desc')">最新优先</button>
+            <button class="sort-btn" onclick="changeSort('date-asc')">最早优先</button>
         </div>
-
-        <div class="sort-controls">
-            <button class="sort-btn active" onclick="sortPhotos('newest')">最新优先</button>
-            <button class="sort-btn" onclick="sortPhotos('oldest')">最早优先</button>
-        </div>
-
-        <div id="photoGrid" class="photo-grid">
-            <div class="no-photos">
-                还没有上传照片哦～<br>
-                快来分享你们的美好回忆吧！
-            </div>
+        
+        <div id="photos-container" class="photos-container">
+            <!-- 照片将在这里动态加载 -->
         </div>
     </div>
-
+    
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modal-img">
+    </div>
+    
     <script>
         // Firebase配置
         const firebaseConfig = {
@@ -310,146 +237,72 @@
             storageBucket: "photo-memory-596ef.firebasestorage.app",
             messagingSenderId: "963316273567",
             appId: "1:963316273567:web:10ac3d837aa19afee12daa",
-            measurementId: "G-BTHDGQERVF"
+            measurementId: "G-BTHDGQERVF",
+            databaseURL: "https://photo-memory-596ef-default-rtdb.firebaseio.com" // 添加Realtime Database URL
         };
-
+        
         // 初始化Firebase
         firebase.initializeApp(firebaseConfig);
         
         // 获取Firebase服务引用
-        const db = firebase.firestore();
         const storage = firebase.storage();
         const auth = firebase.auth();
-        // 使用公共照片集合，简化数据结构
-        const photosCollection = db.collection('public_photos');
+        const database = firebase.database();
         
-        // 设置Firestore和Storage的缓存策略，确保实时更新
-        db.settings({
-            cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-        });
-        db.enablePersistence({ synchronizeTabs: true })
-          .catch(err => {
-              console.error('启用离线持久化失败:', err);
-          });
+        // 使用Realtime Database存储照片数据
+        const photosRef = database.ref('photos');
         
-        // 使用固定的公共访问模式，不需要登录即可访问数据
-        // 注意：这需要在Firebase控制台中设置相应的安全规则
+        // 照片数据和排序设置
+        let photos = [];
+        let currentSort = 'date-desc';
+        let syncInterval;
         
-        // 使用匿名登录模式，简化认证过程
+        // 匿名登录
         auth.signInAnonymously()
             .then(() => {
-                console.log('匿名登录成功，可以访问数据');
-                // 登录成功后立即加载数据
+                console.log('匿名登录成功');
+                // 登录成功后加载照片
                 loadPhotosFromFirebase();
             })
             .catch(error => {
                 console.error('匿名登录失败:', error);
-                // 即使登录失败仍然尝试从本地加载
+                // 即使登录失败也从本地加载照片
                 loadPhotosFromLocalStorage();
             });
         
-        // 照片数据和排序设置
-        let photos = [];
-        let currentSort = 'newest';
-
-        document.getElementById('photoInput').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
-            
-            files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        // 获取文件的修改时间作为拍摄时间
-                        const photoData = {
-                            id: Date.now() + Math.random(),
-                            src: e.target.result,
-                            name: file.name,
-                            date: new Date(file.lastModified || Date.now()),
-                            memory: ''
-                        };
-                        
-                        // 上传图片到Firebase Storage
-                        uploadPhotoToFirebase(photoData);
-                    };
-                    reader.readAsDataURL(file);
+        // 监听文件上传
+        document.getElementById('photo-upload').addEventListener('change', function(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    processAndUploadPhoto(files[i]);
                 }
-            });
+            }
         });
-
-        function sortPhotos(type) {
-            currentSort = type;
+        
+        // 处理和上传照片
+        function processAndUploadPhoto(file) {
+            const reader = new FileReader();
             
-            // 更新按钮状态
-            document.querySelectorAll('.sort-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            sortAndDisplayPhotos();
-        }
-
-        function sortAndDisplayPhotos() {
-            if (photos.length === 0) return;
-            
-            // 排序照片
-            photos.sort((a, b) => {
-                if (currentSort === 'newest') {
-                    return new Date(b.date) - new Date(a.date);
-                } else {
-                    return new Date(a.date) - new Date(b.date);
-                }
-            });
-            
-            displayPhotos();
-        }
-
-        function displayPhotos() {
-            const grid = document.getElementById('photoGrid');
-            
-            if (photos.length === 0) {
-                grid.innerHTML = '<div class="no-photos">还没有上传照片哦～<br>快来分享你们的美好回忆吧！</div>';
-                return;
-            }
-            
-            grid.innerHTML = photos.map((photo, index) => `
-                <div class="photo-item" style="animation-delay: ${index * 0.1}s">
-                    <div class="photo-frame">
-                        <img src="${photo.src}" alt="${photo.name}">
-                        <div class="photo-date">${formatDate(photo.date)}</div>
-                    </div>
-                    <div class="memory-section">
-                        <div class="memory-label">💭 当时的感受</div>
-                        <textarea 
-                            class="memory-input" 
-                            placeholder="记录下这一刻的美好回忆..."
-                            onchange="updateMemory('${photo.id}', this.value)"
-                        >${photo.memory}</textarea>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function updateMemory(photoId, memory) {
-            // 查找并更新照片的记忆
-            const photo = photos.find(p => p.id == photoId);
-            if (photo) {
-                photo.memory = memory;
-                
-                // 同时更新本地存储和Firebase
-                try {
-                    // 更新本地存储
-                    localStorage.setItem('photos', JSON.stringify(photos));
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // 创建照片数据对象
+                    const photoData = {
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        name: file.name,
+                        src: e.target.result,
+                        date: new Date().toISOString(),
+                        memory: ''
+                    };
                     
-                    // 尝试更新Firestore
-                    photosCollection.doc(photoId.toString()).update({
-                        memory: memory
-                    }).catch(error => {
-                        console.error('更新Firebase记忆失败:', error);
-                    });
-                } catch (error) {
-                    console.error('更新记忆失败:', error);
-                }
-            }
+                    // 上传到Firebase
+                    uploadPhotoToFirebase(photoData);
+                };
+                img.src = e.target.result;
+            };
+            
+            reader.readAsDataURL(file);
         }
         
         // 将照片上传到Firebase
@@ -467,8 +320,8 @@
                 // 将base64转换为Blob
                 const imageBlob = dataURItoBlob(photoData.src);
                 
-                // 创建存储引用，使用公共存储路径
-                const storageRef = storage.ref(`public_photos/${photoData.id}`);
+                // 创建存储引用
+                const storageRef = storage.ref(`photos/${photoData.id}`);
                 
                 // 上传照片
                 const uploadTask = storageRef.put(imageBlob);
@@ -491,27 +344,24 @@
                         uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
                             console.log('图片可在以下地址访问:', downloadURL);
                             
-                            // 保存照片数据到Firestore，使用简化结构
-                            photosCollection.doc(photoData.id.toString()).set({
+                            // 保存照片数据到Realtime Database
+                            const photoToSave = {
                                 id: photoData.id,
                                 name: photoData.name,
                                 src: downloadURL,
-                                date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
-                                memory: photoData.memory,
-                                public: true  // 标记为公共照片
-                            }).then(() => {
-                                console.log("照片数据保存成功!");
-                                // 加载最新的照片数据
-                                loadPhotosFromFirebase();
-                            }).catch(error => {
-                                console.error("保存照片数据失败:", error);
-                                // 如果保存失败，仍然显示照片（从本地存储加载）
-                                loadPhotosFromLocalStorage();
-                            });
+                                date: photoData.date,
+                                memory: photoData.memory || ''
+                            };
+                            
+                            photosRef.child(photoData.id.toString()).set(photoToSave)
+                                .then(() => {
+                                    console.log("照片数据保存成功!");
+                                })
+                                .catch(error => {
+                                    console.error("保存照片数据失败:", error);
+                                });
                         }).catch(error => {
                             console.error('获取下载URL失败:', error);
-                            // 如果获取URL失败，仍然显示照片（从本地存储加载）
-                            loadPhotosFromLocalStorage();
                         });
                     }
                 );
@@ -549,7 +399,7 @@
                 localStorage.setItem('photos', JSON.stringify(storedPhotos));
                 
                 // 更新照片数组并显示
-                photos = storedPhotos;
+                photos.push(photoData);
                 sortAndDisplayPhotos();
                 
                 console.log('照片已保存到本地存储');
@@ -561,70 +411,269 @@
         // 从本地存储加载照片
         function loadPhotosFromLocalStorage() {
             try {
-                // 从本地存储获取照片
                 const storedPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
-                
-                // 更新照片数组并显示
-                photos = storedPhotos;
-                sortAndDisplayPhotos();
-                
-                console.log('从本地存储加载了', photos.length, '张照片');
-                
-                // 即使从本地加载了照片，也尝试从Firebase加载以确保跨设备同步
-                setTimeout(() => {
-                    loadPhotosFromFirebase();
-                }, 1000);
+                if (storedPhotos.length > 0) {
+                    photos = storedPhotos.map(photo => {
+                        // 确保日期是Date对象
+                        return {
+                            ...photo,
+                            date: new Date(photo.date)
+                        };
+                    });
+                    sortAndDisplayPhotos();
+                    console.log('从本地存储加载了', photos.length, '张照片');
+                }
             } catch (error) {
                 console.error('从本地存储加载照片失败:', error);
                 photos = [];
-                displayPhotos();
+                sortAndDisplayPhotos();
             }
         }
         
         // 从Firebase加载照片
         function loadPhotosFromFirebase() {
-            photosCollection.get().then((querySnapshot) => {
-                let firebasePhotos = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    // 转Firestore时间戳为JavaScript日期
-                    data.date = data.date.toDate();
-                    firebasePhotos.push(data);
-                });
-                
-                // 如果Firebase有照片，使用Firebase的数据
-                if (firebasePhotos.length > 0) {
-                    console.log('从Firebase加载了', firebasePhotos.length, '张照片');
-                    
-                    // 合并本地和Firebase的照片，优先使用Firebase的数据
-                    const localPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
-                    const allPhotoIds = new Set();
-                    
-                    // 先添加Firebase照片
-                    photos = firebasePhotos;
-                    firebasePhotos.forEach(photo => allPhotoIds.add(photo.id));
-                    
-                    // 添加本地独有的照片
-                    localPhotos.forEach(photo => {
-                        if (!allPhotoIds.has(photo.id)) {
-                            photos.push(photo);
-                            // 尝试将本地独有照片也上传到Firebase
-                            uploadPhotoToFirebase(photo);
-                        }
+            photosRef.once('value')
+                .then(snapshot => {
+                    const firebasePhotos = [];
+                    snapshot.forEach(childSnapshot => {
+                        const photoData = childSnapshot.val();
+                        firebasePhotos.push({
+                            id: photoData.id,
+                            name: photoData.name,
+                            src: photoData.src,
+                            date: new Date(photoData.date),
+                            memory: photoData.memory || ''
+                        });
                     });
                     
+                    // 合并本地和Firebase照片
+                    mergePhotos(firebasePhotos);
+                    
+                    // 设置实时监听
+                    setupRealtimeListener();
+                })
+                .catch(error => {
+                    console.error('从Firebase加载照片失败:', error);
+                    loadPhotosFromLocalStorage();
+                });
+        }
+        
+        // 合并本地和Firebase照片
+        function mergePhotos(firebasePhotos) {
+            if (firebasePhotos.length > 0) {
+                console.log('从Firebase加载了', firebasePhotos.length, '张照片');
+                
+                // 获取本地照片
+                const localPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
+                const allPhotoIds = new Set();
+                
+                // 先添加Firebase照片
+                photos = firebasePhotos;
+                firebasePhotos.forEach(photo => allPhotoIds.add(photo.id));
+                
+                // 添加本地独有的照片
+                localPhotos.forEach(photo => {
+                    if (!allPhotoIds.has(photo.id)) {
+                        photos.push({
+                            ...photo,
+                            date: new Date(photo.date)
+                        });
+                        // 尝试将本地独有照片也上传到Firebase
+                        uploadPhotoToFirebase(photo);
+                    }
+                });
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                
+                // 排序并显示照片
+                sortAndDisplayPhotos();
+            } else {
+                console.log('Firebase中没有照片，使用本地存储');
+                loadPhotosFromLocalStorage();
+            }
+        }
+        
+        // 设置实时数据监听
+        function setupRealtimeListener() {
+            // 移除之前的监听器
+            photosRef.off();
+            
+            // 监听新照片添加
+            photosRef.on('child_added', snapshot => {
+                const photoData = snapshot.val();
+                // 检查是否已存在此照片
+                const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                if (existingIndex === -1) {
+                    // 添加新照片
+                    photos.push({
+                        id: photoData.id,
+                        name: photoData.name,
+                        src: photoData.src,
+                        date: new Date(photoData.date),
+                        memory: photoData.memory || ''
+                    });
                     // 更新本地存储
                     localStorage.setItem('photos', JSON.stringify(photos));
-                    
+                    // 重新排序和显示
                     sortAndDisplayPhotos();
                 }
-            }).catch(error => {
-                console.error("加载照片失败:", error);
-                // 如果Firebase加载失败，尝试从本地存储加载
-                loadPhotosFromLocalStorage();
+            });
+            
+            // 监听照片更新
+            photosRef.on('child_changed', snapshot => {
+                const photoData = snapshot.val();
+                // 更新已存在的照片
+                const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                if (existingIndex !== -1) {
+                    photos[existingIndex] = {
+                        id: photoData.id,
+                        name: photoData.name,
+                        src: photoData.src,
+                        date: new Date(photoData.date),
+                        memory: photoData.memory || ''
+                    };
+                    // 更新本地存储
+                    localStorage.setItem('photos', JSON.stringify(photos));
+                    // 重新排序和显示
+                    sortAndDisplayPhotos();
+                }
             });
         }
-
+        
+        // 排序并显示照片
+        function sortAndDisplayPhotos() {
+            // 排序照片
+            photos.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (currentSort === 'date-desc') {
+                    return dateB - dateA;
+                } else {
+                    return dateA - dateB;
+                }
+            });
+            
+            // 清空容器
+            const container = document.getElementById('photos-container');
+            container.innerHTML = '';
+            
+            // 显示照片
+            photos.forEach(photo => {
+                const photoCard = document.createElement('div');
+                photoCard.className = 'photo-card';
+                
+                const img = document.createElement('img');
+                img.src = photo.src;
+                img.className = 'photo-img';
+                img.alt = photo.name;
+                img.onclick = function() {
+                    openModal(photo.src);
+                };
+                
+                const dateElement = document.createElement('div');
+                dateElement.className = 'photo-date';
+                dateElement.textContent = formatDate(photo.date);
+                
+                const memoryDiv = document.createElement('div');
+                memoryDiv.className = 'photo-memory';
+                
+                const memoryText = document.createElement('p');
+                memoryText.textContent = photo.memory || '点击添加回忆...';
+                memoryText.style.cursor = 'pointer';
+                memoryText.onclick = function() {
+                    this.style.display = 'none';
+                    memoryInput.style.display = 'block';
+                    saveBtn.style.display = 'block';
+                    memoryInput.focus();
+                };
+                
+                const memoryInput = document.createElement('textarea');
+                memoryInput.className = 'photo-memory-input';
+                memoryInput.value = photo.memory || '';
+                memoryInput.placeholder = '写下这张照片的回忆...';
+                memoryInput.style.display = 'none';
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'save-memory-btn';
+                saveBtn.textContent = '保存回忆';
+                saveBtn.style.display = 'none';
+                saveBtn.onclick = function() {
+                    saveMemory(photo.id, memoryInput.value);
+                    memoryText.textContent = memoryInput.value || '点击添加回忆...';
+                    memoryInput.style.display = 'none';
+                    saveBtn.style.display = 'none';
+                    memoryText.style.display = 'block';
+                };
+                
+                memoryDiv.appendChild(memoryText);
+                memoryDiv.appendChild(memoryInput);
+                memoryDiv.appendChild(saveBtn);
+                
+                photoCard.appendChild(img);
+                photoCard.appendChild(dateElement);
+                photoCard.appendChild(memoryDiv);
+                
+                container.appendChild(photoCard);
+            });
+        }
+        
+        // 更改排序方式
+        function changeSort(sortType) {
+            currentSort = sortType;
+            
+            // 更新排序按钮状态
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(sortType)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 重新排序和显示
+            sortAndDisplayPhotos();
+        }
+        
+        // 保存回忆
+        function saveMemory(photoId, memory) {
+            // 更新本地照片数据
+            const photoIndex = photos.findIndex(p => p.id === photoId);
+            if (photoIndex !== -1) {
+                photos[photoIndex].memory = memory;
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                
+                // 如果已登录，更新Firebase
+                if (auth.currentUser) {
+                    photosRef.child(photoId.toString()).update({
+                        memory: memory
+                    }).then(() => {
+                        console.log('回忆已保存到Firebase');
+                    }).catch(error => {
+                        console.error('保存回忆到Firebase失败:', error);
+                    });
+                }
+            }
+        }
+        
+        // 打开模态框
+        function openModal(src) {
+            const modal = document.getElementById('modal');
+            const modalImg = document.getElementById('modal-img');
+            
+            modal.style.display = 'flex';
+            modalImg.src = src;
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // 格式化日期
         function formatDate(date) {
             const options = { 
                 year: 'numeric', 
@@ -636,7 +685,7 @@
             return new Date(date).toLocaleDateString('zh-CN', options);
         }
         
-        // 页面加载时显示照片
+        // 页面加载时
         window.addEventListener('DOMContentLoaded', function() {
             // 设置排序按钮状态
             document.querySelectorAll('.sort-btn').forEach(btn => {
@@ -655,40 +704,16 @@
                 if (auth.currentUser) {
                     loadPhotosFromFirebase();
                 }
-            }, 30000); // 每30秒同步一次
-            
-            // 监听认证状态变化
-            auth.onAuthStateChanged(function(user) {
-                if (user) {
-                    console.log('用户已登录:', user.uid);
-                    
-                    // 尝试从Firebase加载照片
-                    loadPhotosFromFirebase();
-                    
-                    // 添加实时更新监听
-                    try {
-                        photosCollection.onSnapshot((snapshot) => {
-                            snapshot.docChanges().forEach((change) => {
-                                if (change.type === "added" || change.type === "modified") {
-                                    console.log("照片更新:", change.doc.data());
-                                    // 重新加载所有照片
-                                    loadPhotosFromFirebase();
-                                }
-                            });
-                        }, error => {
-                            console.error('监听照片更新失败:', error);
-                        });
-                    } catch (error) {
-                        console.error('设置监听器失败:', error);
-                    }
-                } else {
-                    console.log('用户未登录，尝试匿名登录');
-                    auth.signInAnonymously().catch(error => {
-                        console.error('匿名登录失败:', error);
-                    });
-                }
-            });
+            }, 10000); // 每10秒同步一次
         });
+        
+        // 点击模态框背景关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
     </script>
 </body>
 </html>
