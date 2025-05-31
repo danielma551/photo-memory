@@ -242,6 +242,10 @@
             }
         }
     </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 </head>
 <body>
     <div class="container">
@@ -272,9 +276,28 @@
     </div>
 
     <script>
-        // 从本地存储加载照片数据
-        let photos = JSON.parse(localStorage.getItem('photoAlbumData')) || [];
-        let currentSort = localStorage.getItem('photoAlbumSort') || 'newest';
+        // Firebase配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFdBeoY2IKG_O23tiAtpK2gLuTfyaGaYk",
+            authDomain: "photo-memory-596ef.firebaseapp.com",
+            projectId: "photo-memory-596ef",
+            storageBucket: "photo-memory-596ef.firebasestorage.app",
+            messagingSenderId: "963316273567",
+            appId: "1:963316273567:web:10ac3d837aa19afee12daa",
+            measurementId: "G-BTHDGQERVF"
+        };
+
+        // 初始化Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // 获取Firestore和Storage引用
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const photosCollection = db.collection('photos');
+        
+        // 照片数据和排序设置
+        let photos = [];
+        let currentSort = 'newest';
 
         document.getElementById('photoInput').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
@@ -292,9 +315,8 @@
                             memory: ''
                         };
                         
-                        photos.push(photoData);
-                        saveToLocalStorage();
-                        sortAndDisplayPhotos();
+                        // 上传图片到Firebase Storage
+                        uploadPhotoToFirebase(photoData);
                     };
                     reader.readAsDataURL(file);
                 }
@@ -309,9 +331,6 @@
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
-            
-            // 保存排序设置到本地存储
-            localStorage.setItem('photoAlbumSort', currentSort);
             
             sortAndDisplayPhotos();
         }
@@ -361,13 +380,94 @@
             const photo = photos.find(p => p.id == photoId);
             if (photo) {
                 photo.memory = memory;
-                saveToLocalStorage();
+                
+                // 更新Firebase中的记忆
+                photosCollection.doc(photoId.toString()).update({
+                    memory: memory
+                }).catch(error => {
+                    console.error("更新记忆失败:", error);
+                });
             }
         }
         
-        // 保存照片数据到本地存储
-        function saveToLocalStorage() {
-            localStorage.setItem('photoAlbumData', JSON.stringify(photos));
+        // 上传照片到Firebase
+        function uploadPhotoToFirebase(photoData) {
+            // 将base64图片转换为Blob
+            const imageBlob = dataURItoBlob(photoData.src);
+            
+            // 创建存储引用
+            const storageRef = storage.ref(`photos/${photoData.id}`);
+            
+            // 上传图片
+            const uploadTask = storageRef.put(imageBlob);
+            
+            uploadTask.on('state_changed', 
+                // 进度回调
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log('上传进度: ' + progress + '%');
+                },
+                // 错误回调
+                (error) => {
+                    console.error('上传失败:', error);
+                },
+                // 完成回调
+                () => {
+                    // 获取下载URL
+                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                        console.log('图片可在以下地址访问:', downloadURL);
+                        
+                        // 更新photoData中的src为下载URL
+                        photoData.src = downloadURL;
+                        
+                        // 保存照片数据到Firestore
+                        photosCollection.doc(photoData.id.toString()).set({
+                            id: photoData.id,
+                            name: photoData.name,
+                            src: downloadURL,
+                            date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
+                            memory: photoData.memory
+                        }).then(() => {
+                            console.log("照片数据保存成功!");
+                            // 加载最新的照片数据
+                            loadPhotosFromFirebase();
+                        }).catch(error => {
+                            console.error("保存照片数据失败:", error);
+                        });
+                    });
+                }
+            );
+        }
+        
+        // 将base64转换为Blob
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            
+            return new Blob([ab], {type: mimeString});
+        }
+        
+        // 从Firebase加载照片
+        function loadPhotosFromFirebase() {
+            photosCollection.get().then((querySnapshot) => {
+                photos = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // 转换Firestore时间戳为JavaScript日期
+                    data.date = data.date.toDate();
+                    photos.push(data);
+                });
+                
+                sortAndDisplayPhotos();
+            }).catch(error => {
+                console.error("加载照片失败:", error);
+            });
         }
 
         function formatDate(date) {
@@ -392,10 +492,19 @@
                 }
             });
             
-            // 显示照片
-            if (photos.length > 0) {
-                sortAndDisplayPhotos();
-            }
+            // 从Firebase加载照片
+            loadPhotosFromFirebase();
+            
+            // 添加实时更新监听
+            photosCollection.onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added" || change.type === "modified") {
+                        console.log("照片更新:", change.doc.data());
+                        // 重新加载所有照片
+                        loadPhotosFromFirebase();
+                    }
+                });
+            });
         });
     </script>
 </body>
