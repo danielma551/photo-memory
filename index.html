@@ -247,6 +247,31 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- 
+    注意：为了让跨设备同步正常工作，请确保Firebase安全规则设置如下：
+    
+    Firestore规则：
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /{document=**} {
+          allow read, write: if true;
+        }
+      }
+    }
+    
+    Storage规则：
+    rules_version = '2';
+    service firebase.storage {
+      match /b/{bucket}/o {
+        match /{allPaths=**} {
+          allow read, write: if true;
+        }
+      }
+    }
+    -->
+    
 </head>
 <body>
     <div class="container">
@@ -295,9 +320,8 @@
         const db = firebase.firestore();
         const storage = firebase.storage();
         const auth = firebase.auth();
-        // 使用固定的共享相册集合，确保所有设备访问相同数据
-        const SHARED_ALBUM_ID = 'shared-romantic-album';
-        const photosCollection = db.collection('albums').doc(SHARED_ALBUM_ID).collection('photos');
+        // 使用公共照片集合，简化数据结构
+        const photosCollection = db.collection('public_photos');
         
         // 设置Firestore和Storage的缓存策略，确保实时更新
         db.settings({
@@ -308,41 +332,21 @@
               console.error('启用离线持久化失败:', err);
           });
         
-        // 使用固定的共享用户ID进行登录，确保所有设备访问相同数据
-        const sharedEmail = 'shared-album@example.com';
-        const sharedPassword = 'shared-album-password';
+        // 使用固定的公共访问模式，不需要登录即可访问数据
+        // 注意：这需要在Firebase控制台中设置相应的安全规则
         
-        // 尝试使用共享账号登录
-        function signInWithSharedAccount() {
-            auth.signInWithEmailAndPassword(sharedEmail, sharedPassword)
-                .catch(error => {
-                    console.log('共享账号不存在，尝试创建:', error.code);
-                    // 如果账号不存在，创建一个
-                    if (error.code === 'auth/user-not-found') {
-                        auth.createUserWithEmailAndPassword(sharedEmail, sharedPassword)
-                            .catch(createError => {
-                                console.error('创建共享账号失败:', createError);
-                                // 如果创建失败，回退到匿名登录
-                                auth.signInAnonymously().catch(anonError => {
-                                    console.error('匿名登录失败:', anonError);
-                                });
-                            });
-                    } else if (error.code === 'auth/wrong-password') {
-                        // 密码可能已更改，尝试匿名登录
-                        auth.signInAnonymously().catch(anonError => {
-                            console.error('匿名登录失败:', anonError);
-                        });
-                    } else {
-                        // 其他错误，尝试匿名登录
-                        auth.signInAnonymously().catch(anonError => {
-                            console.error('匿名登录失败:', anonError);
-                        });
-                    }
-                });
-        }
-        
-        // 调用登录函数
-        signInWithSharedAccount();
+        // 使用匿名登录模式，简化认证过程
+        auth.signInAnonymously()
+            .then(() => {
+                console.log('匿名登录成功，可以访问数据');
+                // 登录成功后立即加载数据
+                loadPhotosFromFirebase();
+            })
+            .catch(error => {
+                console.error('匿名登录失败:', error);
+                // 即使登录失败仍然尝试从本地加载
+                loadPhotosFromLocalStorage();
+            });
         
         // 照片数据和排序设置
         let photos = [];
@@ -463,8 +467,8 @@
                 // 将base64转换为Blob
                 const imageBlob = dataURItoBlob(photoData.src);
                 
-                // 创建存储引用，使用共享相册路径
-                const storageRef = storage.ref(`shared-albums/${SHARED_ALBUM_ID}/photos/${photoData.id}`);
+                // 创建存储引用，使用公共存储路径
+                const storageRef = storage.ref(`public_photos/${photoData.id}`);
                 
                 // 上传照片
                 const uploadTask = storageRef.put(imageBlob);
@@ -487,15 +491,14 @@
                         uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
                             console.log('图片可在以下地址访问:', downloadURL);
                             
-                            // 保存照片数据到Firestore，包含共享相册信息
+                            // 保存照片数据到Firestore，使用简化结构
                             photosCollection.doc(photoData.id.toString()).set({
                                 id: photoData.id,
                                 name: photoData.name,
                                 src: downloadURL,
                                 date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
                                 memory: photoData.memory,
-                                sharedAlbumId: SHARED_ALBUM_ID,  // 添加共享相册ID
-                                uploadedBy: auth.currentUser.uid  // 记录上传者ID
+                                public: true  // 标记为公共照片
                             }).then(() => {
                                 console.log("照片数据保存成功!");
                                 // 加载最新的照片数据
