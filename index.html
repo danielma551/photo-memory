@@ -196,7 +196,7 @@
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
@@ -247,10 +247,15 @@
         // 获取Firebase服务引用
         const storage = firebase.storage();
         const auth = firebase.auth();
-        const database = firebase.database();
+        const firestore = firebase.firestore();
         
-        // 使用Realtime Database存储照片数据
-        const photosRef = database.ref('photos');
+        // 添加诊断日志
+        console.log('Firebase初始化完成');
+        console.log('Firestore引用:', firestore);
+        console.log('Storage引用:', storage);
+        
+        // 使用Firestore存储照片数据
+        const photosCollection = firestore.collection('photos');
         
         // 照片数据和排序设置
         let photos = [];
@@ -344,16 +349,16 @@
                         uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
                             console.log('图片可在以下地址访问:', downloadURL);
                             
-                            // 保存照片数据到Realtime Database
+                            // 保存照片数据到Firestore
                             const photoToSave = {
                                 id: photoData.id,
                                 name: photoData.name,
                                 src: downloadURL,
-                                date: photoData.date,
+                                date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
                                 memory: photoData.memory || ''
                             };
                             
-                            photosRef.child(photoData.id.toString()).set(photoToSave)
+                            photosCollection.doc(photoData.id.toString()).set(photoToSave)
                                 .then(() => {
                                     console.log("照片数据保存成功!");
                                 })
@@ -432,19 +437,21 @@
         
         // 从Firebase加载照片
         function loadPhotosFromFirebase() {
-            photosRef.once('value')
+            photosCollection.get()
                 .then(snapshot => {
                     const firebasePhotos = [];
-                    snapshot.forEach(childSnapshot => {
-                        const photoData = childSnapshot.val();
+                    snapshot.forEach(doc => {
+                        const photoData = doc.data();
                         firebasePhotos.push({
                             id: photoData.id,
                             name: photoData.name,
                             src: photoData.src,
-                            date: new Date(photoData.date),
+                            date: photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date),
                             memory: photoData.memory || ''
                         });
                     });
+                    
+                    console.log('从Firestore加载了', firebasePhotos.length, '张照片');
                     
                     // 合并本地和Firebase照片
                     mergePhotos(firebasePhotos);
@@ -453,7 +460,7 @@
                     setupRealtimeListener();
                 })
                 .catch(error => {
-                    console.error('从Firebase加载照片失败:', error);
+                    console.error('从Firestore加载照片失败:', error);
                     loadPhotosFromLocalStorage();
                 });
         }
@@ -496,48 +503,56 @@
         
         // 设置实时数据监听
         function setupRealtimeListener() {
-            // 移除之前的监听器
-            photosRef.off();
+            // 取消之前的监听器
+            let unsubscribeAdded;
+            let unsubscribeChanged;
             
             // 监听新照片添加
-            photosRef.on('child_added', snapshot => {
-                const photoData = snapshot.val();
-                // 检查是否已存在此照片
-                const existingIndex = photos.findIndex(p => p.id === photoData.id);
-                if (existingIndex === -1) {
-                    // 添加新照片
-                    photos.push({
-                        id: photoData.id,
-                        name: photoData.name,
-                        src: photoData.src,
-                        date: new Date(photoData.date),
-                        memory: photoData.memory || ''
-                    });
-                    // 更新本地存储
-                    localStorage.setItem('photos', JSON.stringify(photos));
-                    // 重新排序和显示
-                    sortAndDisplayPhotos();
-                }
-            });
-            
-            // 监听照片更新
-            photosRef.on('child_changed', snapshot => {
-                const photoData = snapshot.val();
-                // 更新已存在的照片
-                const existingIndex = photos.findIndex(p => p.id === photoData.id);
-                if (existingIndex !== -1) {
-                    photos[existingIndex] = {
-                        id: photoData.id,
-                        name: photoData.name,
-                        src: photoData.src,
-                        date: new Date(photoData.date),
-                        memory: photoData.memory || ''
-                    };
-                    // 更新本地存储
-                    localStorage.setItem('photos', JSON.stringify(photos));
-                    // 重新排序和显示
-                    sortAndDisplayPhotos();
-                }
+            unsubscribeAdded = photosCollection.onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'added') {
+                        const photoData = change.doc.data();
+                        // 检查是否已存在此照片
+                        const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                        if (existingIndex === -1) {
+                            // 添加新照片
+                            photos.push({
+                                id: photoData.id,
+                                name: photoData.name,
+                                src: photoData.src,
+                                date: photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date),
+                                memory: photoData.memory || ''
+                            });
+                            // 更新本地存储
+                            localStorage.setItem('photos', JSON.stringify(photos));
+                            // 重新排序和显示
+                            sortAndDisplayPhotos();
+                            console.log('新照片添加:', photoData.id);
+                        }
+                    }
+                    
+                    if (change.type === 'modified') {
+                        const photoData = change.doc.data();
+                        // 更新已存在的照片
+                        const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                        if (existingIndex !== -1) {
+                            photos[existingIndex] = {
+                                id: photoData.id,
+                                name: photoData.name,
+                                src: photoData.src,
+                                date: photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date),
+                                memory: photoData.memory || ''
+                            };
+                            // 更新本地存储
+                            localStorage.setItem('photos', JSON.stringify(photos));
+                            // 重新排序和显示
+                            sortAndDisplayPhotos();
+                            console.log('照片更新:', photoData.id);
+                        }
+                    }
+                });
+            }, error => {
+                console.error('Firestore监听错误:', error);
             });
         }
         
@@ -646,14 +661,14 @@
                 // 更新本地存储
                 localStorage.setItem('photos', JSON.stringify(photos));
                 
-                // 如果已登录，更新Firebase
+                // 如果已登录，更新Firestore
                 if (auth.currentUser) {
-                    photosRef.child(photoId.toString()).update({
+                    photosCollection.doc(photoId.toString()).update({
                         memory: memory
                     }).then(() => {
-                        console.log('回忆已保存到Firebase');
+                        console.log('回忆已保存到Firestore');
                     }).catch(error => {
-                        console.error('保存回忆到Firebase失败:', error);
+                        console.error('保存回忆到Firestore失败:', error);
                     });
                 }
             }
