@@ -196,7 +196,7 @@
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
@@ -247,54 +247,25 @@
         // 获取Firebase服务引用
         const storage = firebase.storage();
         const auth = firebase.auth();
-        const firestore = firebase.firestore();
+        const database = firebase.database();
         
-        // 添加诊断日志
-        console.log('Firebase初始化完成');
-        console.log('Firestore引用:', firestore);
-        console.log('Storage引用:', storage);
-        
-        // 使用Firestore存储照片数据
-        // 使用共享相册ID作为集合名称一部分，以确保所有设备访问相同的集合
-        const albumId = 'shared-album';
-        const photosCollection = firestore.collection('photos');
+        // 使用Realtime Database存储照片数据
+        const photosRef = database.ref('photos');
         
         // 照片数据和排序设置
         let photos = [];
         let currentSort = 'date-desc';
         let syncInterval;
         
-        // 创建或获取共享访问密钥，用于跨设备访问
-        let sharedAccessKey = localStorage.getItem('sharedAccessKey');
-        if (!sharedAccessKey) {
-            // 如果没有存储的访问密钥，创建一个新的
-            sharedAccessKey = 'shared-album-' + Date.now();
-            localStorage.setItem('sharedAccessKey', sharedAccessKey);
-            console.log('创建了新的共享访问密钥:', sharedAccessKey);
-        } else {
-            console.log('使用现有共享访问密钥:', sharedAccessKey);
-        }
-        
         // 匿名登录
-        console.log('开始匿名登录...');
         auth.signInAnonymously()
-            .then((userCredential) => {
+            .then(() => {
                 console.log('匿名登录成功');
-                console.log('用户ID:', userCredential.user.uid);
-                
-                // 将共享访问密钥添加到用户的自定义声明中
-                const user = userCredential.user;
-                user.getIdToken(true).then(function(token) {
-                    console.log('获取到用户令牌，设置共享访问');
-                });
-                console.log('用户对象:', userCredential.user);
                 // 登录成功后加载照片
                 loadPhotosFromFirebase();
             })
             .catch(error => {
                 console.error('匿名登录失败:', error);
-                console.error('错误代码:', error.code);
-                console.error('错误信息:', error.message);
                 // 即使登录失败也从本地加载照片
                 loadPhotosFromLocalStorage();
             });
@@ -336,76 +307,61 @@
         
         // 将照片上传到Firebase
         function uploadPhotoToFirebase(photoData) {
-            console.log('开始上传照片到Firebase, 照片ID:', photoData.id);
             try {
-                // 先保存到本地存储，确保照片立即显示
+                // 保存到本地存储，确保照片能立即显示
                 savePhotoToLocalStorage(photoData);
-                console.log('照片已保存到本地存储');
                 
-                // 如果未登录，只保存到本地
+                // 如果没有登录，不上传到Firebase
                 if (!auth.currentUser) {
                     console.log('未登录，照片只保存在本地');
                     return;
                 }
-                console.log('已登录，用户ID:', auth.currentUser.uid);
 
                 // 将base64转换为Blob
                 const imageBlob = dataURItoBlob(photoData.src);
-                console.log('已将图片转换为Blob, 大小:', imageBlob.size, 'bytes');
                 
-                // 创建Storage引用
+                // 创建存储引用
                 const storageRef = storage.ref(`photos/${photoData.id}`);
-                console.log('创建 Storage 引用:', `photos/${photoData.id}`);
                 
                 // 上传照片
                 const uploadTask = storageRef.put(imageBlob);
-                console.log('开始上传照片到 Storage...');
                 
-                // 监听上传进度
                 uploadTask.on('state_changed', 
+                    // 进度回调
                     (snapshot) => {
-                        // 计算上传进度
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log('上传进度: ' + progress.toFixed(2) + '%', 
-                            '(已上传', snapshot.bytesTransferred, '/', snapshot.totalBytes, 'bytes)');
+                        console.log('上传进度: ' + progress + '%');
                     },
+                    // 错误回调
                     (error) => {
-                        // 处理上传错误
                         console.error('上传失败:', error);
-                        console.error('错误代码:', error.code);
-                        console.error('错误信息:', error.message);
-                        alert('照片上传失败，请重试');
+                        // 如果上传失败，仍然显示照片（从本地存储加载）
+                        loadPhotosFromLocalStorage();
                     },
+                    // 完成回调
                     () => {
-                        // 上传完成，获取下载链接
-                        console.log('照片上传完成，正在获取下载 URL...');
+                        // 获取下载URL
                         uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
                             console.log('图片可在以下地址访问:', downloadURL);
                             
-                            // 保存照片数据到Firestore
-                            console.log('准备保存照片数据到 Firestore...');
+                            // 保存照片数据到Realtime Database
                             const photoToSave = {
                                 id: photoData.id,
                                 name: photoData.name,
                                 src: downloadURL,
-                                date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
+                                date: photoData.date,
                                 memory: photoData.memory || ''
                             };
-                            console.log('要保存的照片数据:', photoToSave);
                             
-                            photosCollection.doc(photoData.id.toString()).set(photoToSave)
+                            photosRef.child(photoData.id.toString()).set(photoToSave)
                                 .then(() => {
-                                    console.log("照片数据保存成功! ID:", photoData.id);
+                                    console.log("照片数据保存成功!");
                                 })
                                 .catch(error => {
                                     console.error("保存照片数据失败:", error);
-                                    console.error('错误代码:', error.code);
-                                    console.error('错误信息:', error.message);
                                 });
                         }).catch(error => {
-                            console.error('获取下载链接失败:', error);
-                            console.error('错误代码:', error.code);
-                            console.error('错误信息:', error.message);
+                            console.error('获取下载URL失败:', error);
                         });
                     }
                 );
@@ -476,28 +432,19 @@
         
         // 从Firebase加载照片
         function loadPhotosFromFirebase() {
-            console.log('开始从Firestore加载照片...');
-            // 尝试使用通用查询，不依赖于特定用户
-            photosCollection.get()
+            photosRef.once('value')
                 .then(snapshot => {
-                    console.log('成功获取Firestore数据, 文档数:', snapshot.size);
                     const firebasePhotos = [];
-                    snapshot.forEach(doc => {
-                        const photoData = doc.data();
-                        console.log('处理照片文档:', doc.id, photoData);
+                    snapshot.forEach(childSnapshot => {
+                        const photoData = childSnapshot.val();
                         firebasePhotos.push({
                             id: photoData.id,
                             name: photoData.name,
                             src: photoData.src,
-                            date: photoData.date && photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date || Date.now()),
+                            date: new Date(photoData.date),
                             memory: photoData.memory || ''
                         });
                     });
-                    
-                    console.log('从Firestore加载了', firebasePhotos.length, '张照片');
-                    if (firebasePhotos.length > 0) {
-                        console.log('第一张照片样例:', firebasePhotos[0]);
-                    }
                     
                     // 合并本地和Firebase照片
                     mergePhotos(firebasePhotos);
@@ -506,143 +453,259 @@
                     setupRealtimeListener();
                 })
                 .catch(error => {
-                    console.error('从Firestore加载照片失败:', error);
-                    console.error('错误代码:', error.code);
-                    console.error('错误信息:', error.message);
+                    console.error('从Firebase加载照片失败:', error);
                     loadPhotosFromLocalStorage();
                 });
-}
-
-// 设置实时数据监听
-function setupRealtimeListener() {
-    console.log('设置 Firestore 实时监听器...');
-    console.log('使用共享访问进行监听，访问密钥:', sharedAccessKey);
-            // 取消之前的监听器
-            let unsubscribeAdded;
-            
-            // 监听新照片添加和更新
-            unsubscribeAdded = photosCollection.onSnapshot(snapshot => {
-                console.log('收到 Firestore 数据变化, 变化数:', snapshot.docChanges().length);
+        }
+        
+        // 合并本地和Firebase照片
+        function mergePhotos(firebasePhotos) {
+            if (firebasePhotos.length > 0) {
+                console.log('从Firebase加载了', firebasePhotos.length, '张照片');
                 
-                snapshot.docChanges().forEach(change => {
-                    console.log('变化类型:', change.type, '文档ID:', change.doc.id);
-                    const photoData = change.doc.data();
-                    console.log('照片数据:', photoData);
-                    
-                    if (change.type === 'added') {
-                        // 检查是否已存在此照片
-                        const existingIndex = photos.findIndex(p => p.id === photoData.id);
-                        console.log('检查照片是否存在, ID:', photoData.id, '索引:', existingIndex);
-                        
-                        if (existingIndex === -1) {
-                            // 添加新照片
-                            const newPhoto = {
-                                id: photoData.id,
-                                name: photoData.name,
-                                src: photoData.src,
-                                date: photoData.date && photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date || Date.now()),
-                                memory: photoData.memory || ''
-                            };
-                            photos.push(newPhoto);
-                            console.log('添加新照片到数组:', newPhoto);
-                            
-                            // 更新本地存储
-                            localStorage.setItem('photos', JSON.stringify(photos));
-                            console.log('已更新本地存储, 总照片数:', photos.length);
-                            
-                            // 重新排序和显示
-                            sortAndDisplayPhotos();
-                            console.log('新照片添加完成:', photoData.id);
-                        }
-                    }
-                    
-                    if (change.type === 'modified') {
-                        // 更新已存在的照片
-                        const existingIndex = photos.findIndex(p => p.id === photoData.id);
-                        console.log('检查要更新的照片, ID:', photoData.id, '索引:', existingIndex);
-                        
-                        if (existingIndex !== -1) {
-                            const updatedPhoto = {
-                                id: photoData.id,
-                                name: photoData.name,
-                                src: photoData.src,
-                                date: photoData.date && photoData.date.toDate ? photoData.date.toDate() : new Date(photoData.date || Date.now()),
-                                memory: photoData.memory || ''
-                            };
-                            photos[existingIndex] = updatedPhoto;
-                            console.log('更新现有照片:', updatedPhoto);
-                            
-                            // 更新本地存储
-                            localStorage.setItem('photos', JSON.stringify(photos));
-                            console.log('已更新本地存储, 总照片数:', photos.length);
-                            
-                            // 重新排序和显示
-                            sortAndDisplayPhotos();
-                            console.log('照片更新完成:', photoData.id);
-                        }
+                // 获取本地照片
+                const localPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
+                const allPhotoIds = new Set();
+                
+                // 先添加Firebase照片
+                photos = firebasePhotos;
+                firebasePhotos.forEach(photo => allPhotoIds.add(photo.id));
+                
+                // 添加本地独有的照片
+                localPhotos.forEach(photo => {
+                    if (!allPhotoIds.has(photo.id)) {
+                        photos.push({
+                            ...photo,
+                            date: new Date(photo.date)
+                        });
+                        // 尝试将本地独有照片也上传到Firebase
+                        uploadPhotoToFirebase(photo);
                     }
                 });
-            }, error => {
-                console.error('Firestore监听错误:', error);
-                console.error('错误代码:', error.code);
-                console.error('错误信息:', error.message);
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                
+                // 排序并显示照片
+                sortAndDisplayPhotos();
+            } else {
+                console.log('Firebase中没有照片，使用本地存储');
+                loadPhotosFromLocalStorage();
+            }
+        }
+        
+        // 设置实时数据监听
+        function setupRealtimeListener() {
+            // 移除之前的监听器
+            photosRef.off();
+            
+            // 监听新照片添加
+            photosRef.on('child_added', snapshot => {
+                const photoData = snapshot.val();
+                // 检查是否已存在此照片
+                const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                if (existingIndex === -1) {
+                    // 添加新照片
+                    photos.push({
+                        id: photoData.id,
+                        name: photoData.name,
+                        src: photoData.src,
+                        date: new Date(photoData.date),
+                        memory: photoData.memory || ''
+                    });
+                    // 更新本地存储
+                    localStorage.setItem('photos', JSON.stringify(photos));
+                    // 重新排序和显示
+                    sortAndDisplayPhotos();
+                }
             });
             
-            console.log('Firestore 实时监听器设置完成');
-}
-
-// 测试Firebase安全规则
-function testFirebaseRules() {
-    console.log('开始测试Firebase安全规则...');
-    console.log('使用共享访问密钥:', sharedAccessKey);
-            
-            // 测试Firestore读取权限
-            photosCollection.limit(1).get()
-                .then(snapshot => {
-                    console.log('Firestore读取权限测试成功');
-                })
-                .catch(error => {
-                    console.error('Firestore读取权限测试失败:', error);
-                    console.error('错误代码:', error.code);
-                    console.error('错误信息:', error.message);
-                    alert('请检查Firebase Firestore安全规则，确保已设置为 allow read, write: if true;');
-                });
-            
-            // 测试Firestore写入权限
-            const testDocId = 'test-' + Date.now();
-            photosCollection.doc(testDocId).set({test: true})
-                .then(() => {
-                    console.log('Firestore写入权限测试成功');
-                    // 清理测试数据
-                    photosCollection.doc(testDocId).delete()
-                        .then(() => console.log('测试数据已清理'))
-                        .catch(e => console.error('清理测试数据失败:', e));
-                })
-                .catch(error => {
-                    console.error('Firestore写入权限测试失败:', error);
-                    console.error('错误代码:', error.code);
-                    console.error('错误信息:', error.message);
-                    alert('请检查Firebase Firestore安全规则，确保已设置为 allow read, write: if true;');
-                });
-            
-            // 测试Storage写入权限
-            const testBlob = new Blob(['test'], {type: 'text/plain'});
-            const testRef = storage.ref('test/test-' + Date.now() + '.txt');
-            testRef.put(testBlob)
-                .then(() => {
-                    console.log('Storage写入权限测试成功');
-                    // 清理测试数据
-                    testRef.delete()
-                        .then(() => console.log('Storage测试数据已清理'))
-                        .catch(e => console.error('清理Storage测试数据失败:', e));
-                })
-                .catch(error => {
-                    console.error('Storage写入权限测试失败:', error);
-                    console.error('错误代码:', error.code);
-                    console.error('错误信息:', error.message);
-                    alert('请检查Firebase Storage安全规则，确保已设置为 allow read, write: if true;');
-                });
+            // 监听照片更新
+            photosRef.on('child_changed', snapshot => {
+                const photoData = snapshot.val();
+                // 更新已存在的照片
+                const existingIndex = photos.findIndex(p => p.id === photoData.id);
+                if (existingIndex !== -1) {
+                    photos[existingIndex] = {
+                        id: photoData.id,
+                        name: photoData.name,
+                        src: photoData.src,
+                        date: new Date(photoData.date),
+                        memory: photoData.memory || ''
+                    };
+                    // 更新本地存储
+                    localStorage.setItem('photos', JSON.stringify(photos));
+                    // 重新排序和显示
+                    sortAndDisplayPhotos();
+                }
+            });
         }
+        
+        // 排序并显示照片
+        function sortAndDisplayPhotos() {
+            // 排序照片
+            photos.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (currentSort === 'date-desc') {
+                    return dateB - dateA;
+                } else {
+                    return dateA - dateB;
+                }
+            });
+            
+            // 清空容器
+            const container = document.getElementById('photos-container');
+            container.innerHTML = '';
+            
+            // 显示照片
+            photos.forEach(photo => {
+                const photoCard = document.createElement('div');
+                photoCard.className = 'photo-card';
+                
+                const img = document.createElement('img');
+                img.src = photo.src;
+                img.className = 'photo-img';
+                img.alt = photo.name;
+                img.onclick = function() {
+                    openModal(photo.src);
+                };
+                
+                const dateElement = document.createElement('div');
+                dateElement.className = 'photo-date';
+                dateElement.textContent = formatDate(photo.date);
+                
+                const memoryDiv = document.createElement('div');
+                memoryDiv.className = 'photo-memory';
+                
+                const memoryText = document.createElement('p');
+                memoryText.textContent = photo.memory || '点击添加回忆...';
+                memoryText.style.cursor = 'pointer';
+                memoryText.onclick = function() {
+                    this.style.display = 'none';
+                    memoryInput.style.display = 'block';
+                    saveBtn.style.display = 'block';
+                    memoryInput.focus();
+                };
+                
+                const memoryInput = document.createElement('textarea');
+                memoryInput.className = 'photo-memory-input';
+                memoryInput.value = photo.memory || '';
+                memoryInput.placeholder = '写下这张照片的回忆...';
+                memoryInput.style.display = 'none';
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'save-memory-btn';
+                saveBtn.textContent = '保存回忆';
+                saveBtn.style.display = 'none';
+                saveBtn.onclick = function() {
+                    saveMemory(photo.id, memoryInput.value);
+                    memoryText.textContent = memoryInput.value || '点击添加回忆...';
+                    memoryInput.style.display = 'none';
+                    saveBtn.style.display = 'none';
+                    memoryText.style.display = 'block';
+                };
+                
+                memoryDiv.appendChild(memoryText);
+                memoryDiv.appendChild(memoryInput);
+                memoryDiv.appendChild(saveBtn);
+                
+                photoCard.appendChild(img);
+                photoCard.appendChild(dateElement);
+                photoCard.appendChild(memoryDiv);
+                
+                container.appendChild(photoCard);
+            });
+        }
+        
+        // 更改排序方式
+        function changeSort(sortType) {
+            currentSort = sortType;
+            
+            // 更新排序按钮状态
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(sortType)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 重新排序和显示
+            sortAndDisplayPhotos();
+        }
+        
+        // 保存回忆
+        function saveMemory(photoId, memory) {
+            // 更新本地照片数据
+            const photoIndex = photos.findIndex(p => p.id === photoId);
+            if (photoIndex !== -1) {
+                photos[photoIndex].memory = memory;
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                
+                // 如果已登录，更新Firebase
+                if (auth.currentUser) {
+                    photosRef.child(photoId.toString()).update({
+                        memory: memory
+                    }).then(() => {
+                        console.log('回忆已保存到Firebase');
+                    }).catch(error => {
+                        console.error('保存回忆到Firebase失败:', error);
+                    });
+                }
+            }
+        }
+        
+        // 打开模态框
+        function openModal(src) {
+            const modal = document.getElementById('modal');
+            const modalImg = document.getElementById('modal-img');
+            
+            modal.style.display = 'flex';
+            modalImg.src = src;
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // 格式化日期
+        function formatDate(date) {
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return new Date(date).toLocaleDateString('zh-CN', options);
+        }
+        
+        // 页面加载时
+        window.addEventListener('DOMContentLoaded', function() {
+            // 设置排序按钮状态
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(currentSort)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 先从本地存储加载照片，确保照片能立即显示
+            loadPhotosFromLocalStorage();
+            
+            // 每隔一段时间自动从Firebase同步照片，确保跨设备更新
+            setInterval(() => {
+                if (auth.currentUser) {
+                    loadPhotosFromFirebase();
+                }
+            }, 10000); // 每10秒同步一次
+        });
         
         // 点击模态框背景关闭
         window.onclick = function(event) {

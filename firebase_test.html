@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase连接测试</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Firebase连接测试</h1>
+    <p>此页面用于测试Firebase连接和权限问题</p>
+    
+    <div class="test-section">
+        <h2>1. Firebase初始化测试</h2>
+        <button onclick="testInitialization()">测试初始化</button>
+        <div id="init-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 匿名登录测试</h2>
+        <button onclick="testAnonymousAuth()">测试匿名登录</button>
+        <div id="auth-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Realtime Database读取测试</h2>
+        <button onclick="testDatabaseRead()">测试数据库读取</button>
+        <div id="db-read-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Realtime Database写入测试</h2>
+        <button onclick="testDatabaseWrite()">测试数据库写入</button>
+        <div id="db-write-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Storage读取测试</h2>
+        <button onclick="testStorageRead()">测试存储读取</button>
+        <div id="storage-read-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>6. Storage写入测试</h2>
+        <button onclick="testStorageWrite()">测试存储写入</button>
+        <div id="storage-write-result"></div>
+    </div>
+    
+    <script>
+        // Firebase配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFdBeoY2IKG_O23tiAtpK2gLuTfyaGaYk",
+            authDomain: "photo-memory-596ef.firebaseapp.com",
+            projectId: "photo-memory-596ef",
+            storageBucket: "photo-memory-596ef.firebasestorage.app",
+            messagingSenderId: "963316273567",
+            appId: "1:963316273567:web:10ac3d837aa19afee12daa",
+            measurementId: "G-BTHDGQERVF",
+            databaseURL: "https://photo-memory-596ef-default-rtdb.firebaseio.com"
+        };
+        
+        // 全局变量
+        let app, auth, database, storage;
+        
+        // 辅助函数 - 显示结果
+        function showResult(elementId, success, message, details = null) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `
+                <p class="${success ? 'success' : 'error'}">${message}</p>
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+        }
+        
+        // 测试1: Firebase初始化
+        function testInitialization() {
+            try {
+                // 初始化Firebase
+                app = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                database = firebase.database();
+                storage = firebase.storage();
+                
+                showResult('init-result', true, '✅ Firebase初始化成功', {
+                    appName: app.name,
+                    databaseURL: database._repoInternal.repoInfo_.databaseURL,
+                    authDomain: auth.app.options.authDomain
+                });
+            } catch (error) {
+                showResult('init-result', false, '❌ Firebase初始化失败', {
+                    code: error.code,
+                    message: error.message
+                });
+            }
+        }
+        
+        // 测试2: 匿名登录
+        function testAnonymousAuth() {
+            if (!auth) {
+                showResult('auth-result', false, '❌ 请先初始化Firebase');
+                return;
+            }
+            
+            auth.signInAnonymously()
+                .then(userCredential => {
+                    showResult('auth-result', true, '✅ 匿名登录成功', {
+                        uid: userCredential.user.uid,
+                        isAnonymous: userCredential.user.isAnonymous
+                    });
+                })
+                .catch(error => {
+                    showResult('auth-result', false, '❌ 匿名登录失败', {
+                        code: error.code,
+                        message: error.message
+                    });
+                });
+        }
+        
+        // 测试3: 数据库读取
+        function testDatabaseRead() {
+            if (!database) {
+                showResult('db-read-result', false, '❌ 请先初始化Firebase');
+                return;
+            }
+            
+            database.ref('test').once('value')
+                .then(snapshot => {
+                    showResult('db-read-result', true, '✅ 数据库读取成功', {
+                        exists: snapshot.exists(),
+                        value: snapshot.val()
+                    });
+                })
+                .catch(error => {
+                    showResult('db-read-result', false, '❌ 数据库读取失败', {
+                        code: error.code,
+                        message: error.message
+                    });
+                });
+        }
+        
+        // 测试4: 数据库写入
+        function testDatabaseWrite() {
+            if (!database) {
+                showResult('db-write-result', false, '❌ 请先初始化Firebase');
+                return;
+            }
+            
+            const testData = {
+                timestamp: Date.now(),
+                message: '测试数据',
+                testId: Math.floor(Math.random() * 1000)
+            };
+            
+            database.ref('test').set(testData)
+                .then(() => {
+                    showResult('db-write-result', true, '✅ 数据库写入成功', testData);
+                })
+                .catch(error => {
+                    showResult('db-write-result', false, '❌ 数据库写入失败', {
+                        code: error.code,
+                        message: error.message
+                    });
+                });
+        }
+        
+        // 测试5: 存储读取
+        function testStorageRead() {
+            if (!storage) {
+                showResult('storage-read-result', false, '❌ 请先初始化Firebase');
+                return;
+            }
+            
+            storage.ref('test/test.txt').getDownloadURL()
+                .then(url => {
+                    showResult('storage-read-result', true, '✅ 存储读取成功', {
+                        downloadURL: url
+                    });
+                })
+                .catch(error => {
+                    showResult('storage-read-result', false, '❌ 存储读取失败', {
+                        code: error.code,
+                        message: error.message
+                    });
+                });
+        }
+        
+        // 测试6: 存储写入
+        function testStorageWrite() {
+            if (!storage) {
+                showResult('storage-write-result', false, '❌ 请先初始化Firebase');
+                return;
+            }
+            
+            // 创建一个简单的文本文件
+            const testBlob = new Blob(['这是一个测试文件 - ' + new Date().toISOString()], {type: 'text/plain'});
+            
+            storage.ref('test/test.txt').put(testBlob)
+                .then(snapshot => {
+                    showResult('storage-write-result', true, '✅ 存储写入成功', {
+                        bytesTransferred: snapshot.bytesTransferred,
+                        totalBytes: snapshot.totalBytes,
+                        state: snapshot.state
+                    });
+                })
+                .catch(error => {
+                    showResult('storage-write-result', false, '❌ 存储写入失败', {
+                        code: error.code,
+                        message: error.message
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
