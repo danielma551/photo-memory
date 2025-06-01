@@ -61,6 +61,13 @@
             background-color: #ff5252;
         }
 
+        .upload-instructions {
+            margin-top: 8px; /* 增加与上方按钮的间距 */
+            font-size: 0.85em; /* 使字体略小一些 */
+            color: #555;    /* 使颜色略浅一些 */
+            line-height: 1.4; /* 调整行高，如果文字可能换行 */
+        }
+
         .sort-container {
             margin-bottom: 20px;
             display: flex;
@@ -234,7 +241,7 @@
                 📷 点击上传照片
             </label>
             <input type="file" id="photo-upload" accept="image/*" style="display: none;" multiple>
-            <p>支持点击，将自动调整并添加到相册</p>
+            <p class="upload-instructions">支持点击，将自动调整并添加到相册</p>
         </div>
         
         <div class="sort-container">
