@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -102,7 +103,7 @@
         };
         
         // 全局变量
-        let app, auth, database, storage;
+        let app, auth, firestore, storage;
         
         // 辅助函数 - 显示结果
         function showResult(elementId, success, message, details = null) {
@@ -119,12 +120,12 @@
                 // 初始化Firebase
                 app = firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
-                database = firebase.database();
+                firestore = firebase.firestore(); // 使用 Firestore
                 storage = firebase.storage();
                 
-                showResult('init-result', true, '✅ Firebase初始化成功', {
+                showResult('init-result', true, '✅ Firebase初始化成功 (Firestore & Storage)', {
                     appName: app.name,
-                    databaseURL: database._repoInternal.repoInfo_.databaseURL,
+                    projectId: app.options.projectId, // 显示项目ID
                     authDomain: auth.app.options.authDomain
                 });
             } catch (error) {

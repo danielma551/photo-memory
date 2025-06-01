@@ -122,6 +122,30 @@
             text-align: left;
             color: #333;
         }
+        
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 0, 0, 0.7);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+        
+        .delete-btn:hover {
+            background-color: rgba(255, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
 
         .photo-memory-input {
             width: 100%;
@@ -257,7 +281,9 @@
         // 使用Firestore存储照片数据
         // 使用共享相册ID作为集合名称一部分，以确保所有设备访问相同的集合
         const albumId = 'shared-album';
-        const photosCollection = firestore.collection('photos');
+        // 使用固定相册ID作为集合路径，确保所有设备访问相同的数据
+        const photosCollection = firestore.collection('albums').doc(albumId).collection('photos');
+        console.log('使用共享相册集合路径: albums/' + albumId + '/photos');
         
         // 照片数据和排序设置
         let photos = [];
@@ -290,37 +316,114 @@
                 console.log('用户对象:', userCredential.user);
                 // 登录成功后加载照片
                 loadPhotosFromFirebase();
+                
+                // 设置上传按钮监听器
+                setupUploadListener();
             })
             .catch(error => {
-                console.error('匿名登录失败:', error);
+                console.error(' 匿名登录失败:', error);
                 console.error('错误代码:', error.code);
                 console.error('错误信息:', error.message);
                 // 即使登录失败也从本地加载照片
                 loadPhotosFromLocalStorage();
+                
+                // 登录失败也要设置上传按钮监听器
+                setupUploadListener();
             });
         
-        // 监听文件上传
-        document.getElementById('photo-upload').addEventListener('change', function(event) {
-            const files = event.target.files;
-            if (files && files.length > 0) {
-                for (let i = 0; i < files.length; i++) {
-                    processAndUploadPhoto(files[i]);
-                }
+        // Flag to prevent multiple simultaneous upload processing
+        let isProcessingUpload = false;
+
+        // 添加文件上传事件监听器
+        function setupUploadListener() {
+            console.log('设置上传按钮监听器...');
+            const uploadInput = document.getElementById('photo-upload');
+            if (uploadInput) {
+                console.log('找到上传按钮元素:', uploadInput);
+                uploadInput.addEventListener('change', async function(event) { // Made event handler async
+                    if (isProcessingUpload) {
+                        console.warn('上传处理中，忽略此次文件选择事件。');
+                        event.target.value = null; // Clear input to allow re-selection if needed
+                        return;
+                    }
+                    isProcessingUpload = true;
+
+                    console.log('检测到文件选择事件');
+                    const files = event.target.files;
+                    console.log('选择的文件数量:', files ? files.length : 0);
+                    if (files && files.length > 0) {
+                        for (let i = 0; i < files.length; i++) {
+                            console.log('开始处理第', i+1, '个文件:', files[i].name);
+                            try {
+                                // Assuming processAndUploadPhoto might involve async operations or return a Promise
+                                await processAndUploadPhoto(files[i]);
+                            } catch (error) {
+                                console.error('处理或上传文件时出错:', files[i].name, error);
+                                // Consider adding user feedback here if a specific file fails
+                            }
+                        }
+                    }
+                    
+                    // Reset the flag after all files in the current selection have been processed (or attempted)
+                    isProcessingUpload = false;
+                    // Clear the file input to allow re-selection of the same file(s) if the user wants to.
+                    // This is important because without it, selecting the same file again might not trigger the 'change' event.
+                    event.target.value = null;
+                });
+                console.log('上传按钮监听器设置成功');
+            } else {
+                console.error('找不到上传按钮元素!');
             }
-        });
+        }
         
         // 处理和上传照片
         function processAndUploadPhoto(file) {
+            console.log('开始处理照片:', file.name, '大小:', (file.size / 1024 / 1024).toFixed(2), 'MB', '类型:', file.type);
+            
+            // 检查文件类型
+            if (!file.type.startsWith('image/')) {
+                // 检查文件名扫尾，允许一些常见的图片格式
+                const fileName = file.name.toLowerCase();
+                const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif'];
+                const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+                
+                if (!isValidExtension) {
+                    console.error('无效的文件类型:', file.type, '文件名:', fileName);
+                    alert('请选择有效的图片文件 (JPG, PNG, GIF等)');
+                    return;
+                }
+                
+                console.warn('文件MIME类型不是image/，但文件扩展名有效，尝试处理:', fileName);
+            }
+            
+            // 最大允许大小，10MB
+            const maxFileSize = 10 * 1024 * 1024;
+            if (file.size > maxFileSize) {
+                console.warn('文件超过大小限制:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+            }
+            
             const reader = new FileReader();
             
             reader.onload = function(e) {
+                console.log('文件读取完成');
                 const img = new Image();
+                
                 img.onload = function() {
+                    console.log('图片尺寸:', img.width, 'x', img.height);
+                    
+                    // 压缩大图片
+                    let imageDataUrl = e.target.result;
+                    if (file.size > maxFileSize) {
+                        console.log('开始压缩图片...');
+                        imageDataUrl = compressImage(img, file.type);
+                        console.log('图片压缩完成');
+                    }
+                    
                     // 创建照片数据对象
                     const photoData = {
                         id: Date.now() + Math.floor(Math.random() * 1000),
                         name: file.name,
-                        src: e.target.result,
+                        src: imageDataUrl,
                         date: new Date().toISOString(),
                         memory: ''
                     };
@@ -328,15 +431,160 @@
                     // 上传到Firebase
                     uploadPhotoToFirebase(photoData);
                 };
+                
+                img.onerror = function() {
+                    console.error('加载图片出错');
+                    alert('无法加载所选图片，请确保文件完好');
+                };
+                
                 img.src = e.target.result;
+            };
+            
+            reader.onerror = function() {
+                console.error('读取文件出错');
+                alert('读取文件失败，请重试');
             };
             
             reader.readAsDataURL(file);
         }
         
+        // 压缩图片
+        function compressImage(img, mimeType) {
+            console.log('压缩前图片尺寸:', img.width, 'x', img.height, '类型:', mimeType);
+            
+            // 处理特殊格式
+            // GIF和PNG等保留原始格式特性（如动画和透明度）
+            if (mimeType === 'image/gif') {
+                console.log('检测到GIF格式，跳过压缩以保留动画效果');
+                return img.src; // 保留原始格式
+            }
+            
+            // 对于PNG图片，如果需要保留透明度，使用更高的质量
+            let quality = 0.7; // 默认质量
+            let targetMimeType = mimeType;
+            
+            if (mimeType === 'image/png' || mimeType === 'image/webp') {
+                // 检查是否有透明度
+                const hasTransparency = checkImageTransparency(img);
+                if (hasTransparency) {
+                    console.log('检测到透明图片，使用更高质量和兼容格式');
+                    quality = 0.9; // 提高质量保留透明效果
+                } else {
+                    // 如果没有透明度，可以转为JPEG以获得更好的压缩效果
+                    console.log('PNG/WebP图片无透明度，考虑转换为JPEG以提高压缩效率');
+                    targetMimeType = 'image/jpeg';
+                }
+            }
+            
+            // 计算压缩后的尺寸，保持纵横比
+            const maxWidth = 1600;
+            const maxHeight = 1600;
+            let width = img.width;
+            let height = img.height;
+            
+            // 仅当原始尺寸超过限制时才缩小
+            if (width > maxWidth || height > maxHeight) {
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+                console.log('压缩后图片尺寸:', width, 'x', height);
+            } else {
+                console.log('图片尺寸在合理范围内，保持原始尺寸');
+            }
+            
+            try {
+                // 创建Canvas进行压缩
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                
+                // 对JPEG进行白色背景填充
+                if (targetMimeType === 'image/jpeg') {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+                }
+                
+                // 绘制图片
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // 转换为DataURL，选择压缩质量
+                const compressedDataUrl = canvas.toDataURL(targetMimeType, quality);
+                
+                // 检查压缩结果
+                const originalSize = Math.round(img.src.length / 1024 / 1024 * 0.75);
+                const compressedSize = Math.round(compressedDataUrl.length / 1024 / 1024 * 0.75);
+                console.log('原始图片大小约:', originalSize, 'MB');
+                console.log('压缩后图片大小约:', compressedSize, 'MB');
+                
+                // 如果压缩后反而变大，返回原始图片
+                if (compressedSize > originalSize * 1.1) { // 如果大于原始大1.1倍
+                    console.warn('压缩后图片大小增加，使用原始图片');
+                    return img.src;
+                }
+                
+                return compressedDataUrl;
+            } catch (error) {
+                console.error('压缩图片时出错:', error);
+                // 出错时返回原始图片
+                return img.src;
+            }
+        }
+
+        // 检查图片是否有透明度
+        function checkImageTransparency(img) {
+            try {
+                // 创建临时canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // 使用小尺寸提高性能
+                const size = Math.min(50, img.width, img.height);
+                canvas.width = size;
+                canvas.height = size;
+                
+                // 绘制图片
+                ctx.drawImage(img, 0, 0, size, size);
+                
+                // 获取像素数据
+                const imageData = ctx.getImageData(0, 0, size, size).data;
+                
+                // 检查是否存在非完全不透明的像素
+                for (let i = 3; i < imageData.length; i += 4) {
+                    if (imageData[i] < 255) { // alpha值小于255表示有透明度
+                        return true;
+                    }
+                }
+                
+                return false;
+            } catch (error) {
+                console.error('检查图片透明度时出错:', error);
+                // 如果出错，安全起见假设有透明度
+                return true;
+            }
+        }
+        
         // 将照片上传到Firebase
-        function uploadPhotoToFirebase(photoData) {
-            console.log('开始上传照片到Firebase, 照片ID:', photoData.id);
+        function uploadPhotoToFirebase(photoData, retryCount = 0) {
+            console.log('开始上传照片到Firebase, 照片ID:', photoData.id, retryCount > 0 ? `(重试第${retryCount}次)` : '');
+            
+            // 最大重试次数
+            const MAX_RETRIES = 3;
+            // 当前已经超过重试次数
+            if (retryCount > MAX_RETRIES) {
+                console.error(`上传失败，已超过最大重试次数(${MAX_RETRIES}次)`);
+                alert('照片上传失败，已自动保存到本地，稍后将自动重试同步。');
+                return;
+            }
+            
             try {
                 // 先保存到本地存储，确保照片立即显示
                 savePhotoToLocalStorage(photoData);
@@ -349,34 +597,199 @@
                 }
                 console.log('已登录，用户ID:', auth.currentUser.uid);
 
+                // 创建Timeout以防止超时
+                let uploadTimeout;
+                const UPLOAD_TIMEOUT = 60000; // 60秒超时
+                
                 // 将base64转换为Blob
-                const imageBlob = dataURItoBlob(photoData.src);
-                console.log('已将图片转换为Blob, 大小:', imageBlob.size, 'bytes');
+                let imageBlob;
+                try {
+                    imageBlob = dataURItoBlob(photoData.src);
+                    console.log('已将图片转换为Blob, 大小:', imageBlob.size, 'bytes');
+                } catch (error) {
+                    console.error('图片转换失败:', error);
+                    // 图片格式问题，不重试
+                    alert('图片格式无效，请选择其他图片。');
+                    return;
+                }
                 
                 // 创建Storage引用
                 const storageRef = storage.ref(`photos/${photoData.id}`);
                 console.log('创建 Storage 引用:', `photos/${photoData.id}`);
                 
-                // 上传照片
-                const uploadTask = storageRef.put(imageBlob);
-                console.log('开始上传照片到 Storage...');
+                // 设置自定义元数据以提高成功率
+                const metadata = {
+                    contentType: imageBlob.type,
+                    customMetadata: {
+                        'originalName': photoData.name,
+                        'uploadTime': new Date().toISOString(),
+                        'fileSize': imageBlob.size.toString(),
+                        'deviceInfo': navigator.userAgent
+                    }
+                };
                 
-                // 监听上传进度
+                // 清除之前的超时
+                clearTimeout(uploadTimeout);
+                
+                // 设置新的超时
+                uploadTimeout = setTimeout(() => {
+                    console.warn(`上传超时(${UPLOAD_TIMEOUT / 1000}s)，将自动重试`);
+                    // 重试上传
+                    uploadPhotoToFirebase(photoData, retryCount + 1);
+                }, UPLOAD_TIMEOUT);
+                
+                // 判断是否需要使用分块上传
+                const CHUNK_THRESHOLD = 2 * 1024 * 1024; // 2MB以上使用分块上传
+                let uploadTask;
+                
+                if (imageBlob.size > CHUNK_THRESHOLD) {
+                    console.log('图片大小超过', (CHUNK_THRESHOLD / 1024 / 1024), 'MB, 尝试使用更可靠的上传方式');
+                    
+                    try {
+                        // 对于大文件，我们尝试先开始上传，然后进行暂停和恢复模拟
+                        uploadTask = storageRef.put(imageBlob, metadata);
+                        console.log('开始上传大型照片到 Storage...', '大小:', (imageBlob.size / 1024 / 1024).toFixed(2), 'MB');
+                    } catch (error) {
+                        console.error('创建Storage上传任务失败:', error);
+                        // 如果创建uploadTask失败，尝试更简单的方式
+                        try {
+                            console.log('尝试使用备用上传方式');
+                            uploadTask = storageRef.put(imageBlob);
+                        } catch (e) {
+                            console.error('备用上传方式也失败:', e);
+                            throw e; // 重新抛出以进入错误处理
+                        }
+                    }
+                } else {
+                    // 对于小文件，直接使用标准上传
+                    uploadTask = storageRef.put(imageBlob, metadata);
+                    console.log('开始上传照片到 Storage...', '大小:', (imageBlob.size / 1024 / 1024).toFixed(2), 'MB');
+                }
+                
+                // 上传断点续传
                 uploadTask.on('state_changed', 
+                    // 进度回调
                     (snapshot) => {
-                        // 计算上传进度
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log('上传进度: ' + progress.toFixed(2) + '%', 
-                            '(已上传', snapshot.bytesTransferred, '/', snapshot.totalBytes, 'bytes)');
+                        try {
+                            // 每次进度更新时重置超时计时器
+                            clearTimeout(uploadTimeout);
+                            
+                            // 更新上传进度
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            console.log('上传进度: ' + progress.toFixed(2) + '%');
+                            
+                            // 每间10%进度记录详细信息
+                            if (Math.floor(progress) % 10 === 0) {
+                                console.log(`上传进度量: ${snapshot.bytesTransferred} / ${snapshot.totalBytes} 字节`);
+                            }
+                            
+                            // 设置超时计时器
+                            uploadTimeout = setTimeout(() => {
+                                console.warn(`上传超时(${UPLOAD_TIMEOUT / 1000}s)，将自动重试`);
+                                try {
+                                    // 在超时前尝试取消上传
+                                    uploadTask.cancel().then(() => {
+                                        console.log('超时上传成功取消');
+                                        // 重试上传
+                                        uploadPhotoToFirebase(photoData, retryCount + 1);
+                                    }).catch(err => {
+                                        console.error('取消超时上传失败:', err);
+                                        // 仍然重试上传
+                                        uploadPhotoToFirebase(photoData, retryCount + 1);
+                                    });
+                                } catch (cancelError) {
+                                    console.error('取消上传时出错:', cancelError);
+                                    // 直接重试上传
+                                    uploadPhotoToFirebase(photoData, retryCount + 1);
+                                }
+                            }, UPLOAD_TIMEOUT);
+                            
+                            // 如果进度大于90%，延长超时时间
+                            if (progress > 90 && uploadTimeout) {
+                                clearTimeout(uploadTimeout);
+                                // 延长超时时间给即将完成的上传
+                                uploadTimeout = setTimeout(() => {
+                                    console.warn('尽管上传进度超过90%，但仍然超时，尝试取消并重试');
+                                    try {
+                                        uploadTask.cancel();
+                                    } catch (e) {
+                                        console.error('取消上传失败:', e);
+                                    }
+                                    uploadPhotoToFirebase(photoData, retryCount + 1);
+                                }, 30000); // 30秒超时
+                            }
+                            
+                            // 记录当前状态
+                            switch (snapshot.state) {
+                                case 'paused':
+                                    console.log('上传已暂停');
+                                    break;
+                                case 'running':
+                                    console.log('上传正在进行');
+                                    break;
+                            }
+                        } catch (progressError) {
+                            console.error('处理上传进度时出错:', progressError);
+                        }
                     },
+                    // 错误回调
                     (error) => {
-                        // 处理上传错误
-                        console.error('上传失败:', error);
-                        console.error('错误代码:', error.code);
-                        console.error('错误信息:', error.message);
-                        alert('照片上传失败，请重试');
+                        // 清除超时计时器
+                        clearTimeout(uploadTimeout);
+                        console.error('上传失败:', error.code, error.message);
+                        
+                        // 根据错误类型决定是否需要重试
+                        if (retryCount < MAX_RETRIES) {
+                            // 扩展可重试的错误类型
+                            const retryableErrors = [
+                                'storage/server-error', 
+                                'storage/retry-limit-exceeded',
+                                'storage/network-error',
+                                'storage/unknown',
+                                'storage/quota-exceeded',
+                                'storage/timeout',
+                                'storage/canceled',
+                                'storage/invalid-url'
+                            ];
+                            
+                            if (retryableErrors.includes(error.code) || !error.code) {
+                                // 根据重试次数增加延迟
+                                const retryDelayWithBackoff = RETRY_DELAY * Math.pow(2, retryCount);
+                                console.log(`将在${retryDelayWithBackoff/1000}秒后进行第${retryCount + 1}次重试...`);
+                                
+                                setTimeout(() => {
+                                    try {
+                                        // 重试前尝试检查网络状态
+                                        if (!navigator.onLine) {
+                                            console.warn('设备离线，等待网络恢复后重试');
+                                            // 监听网络恢复事件
+                                            window.addEventListener('online', function onlineHandler() {
+                                                window.removeEventListener('online', onlineHandler);
+                                                console.log('网络已恢复，尝试重新上传');
+                                                uploadPhotoToFirebase(photoData, retryCount + 1);
+                                            });
+                                        } else {
+                                            uploadPhotoToFirebase(photoData, retryCount + 1);
+                                        }
+                                    } catch (e) {
+                                        console.error('重试准备过程中出错:', e);
+                                        uploadPhotoToFirebase(photoData, retryCount + 1);
+                                    }
+                                }, retryDelayWithBackoff);
+                            } else {
+                                // 其他错误不需要重试，如权限不足或取消等
+                                console.error('不可重试的错误类型:', error.code);
+                                alert(`上传失败: ${error.message}\n错误类型: ${error.code}`);
+                            }
+                        } else {
+                            alert(`已尝试${MAX_RETRIES}次上传，但仍然失败。请稍后再试。`);
+                        }
                     },
+                    // 成功回调
                     () => {
+                        // 清除超时计时器
+                        clearTimeout(uploadTimeout);
+                        
                         // 上传完成，获取下载链接
                         console.log('照片上传完成，正在获取下载 URL...');
                         uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
@@ -393,19 +806,88 @@
                             };
                             console.log('要保存的照片数据:', photoToSave);
                             
+                            // 设置Firestore写入超时
+                            const firestoreTimeout = setTimeout(() => {
+                                console.warn('保存到Firestore超时，将更新本地照片URL');
+                                // 更新本地照片URL
+                                updateLocalPhotoUrl(photoData.id, downloadURL);
+                            }, 20000); // 20秒超时
+                            
                             photosCollection.doc(photoData.id.toString()).set(photoToSave)
                                 .then(() => {
+                                    clearTimeout(firestoreTimeout); // 清除超时
                                     console.log("照片数据保存成功! ID:", photoData.id);
+                                    // 更新本地照片URL
+                                    updateLocalPhotoUrl(photoData.id, downloadURL);
                                 })
                                 .catch(error => {
+                                    clearTimeout(firestoreTimeout); // 清除超时
                                     console.error("保存照片数据失败:", error);
                                     console.error('错误代码:', error.code);
                                     console.error('错误信息:', error.message);
-                                });
+                                    // 尝试重试Firestore写入
+                                    if (retryCount < MAX_RETRIES) {
+                                        const nextRetryCount = retryCount + 1;
+                                        console.log(`将开始第 ${nextRetryCount} 次Firestore写入重试`);
+                                        setTimeout(() => {
+                                            console.log('重新尝试保存到Firestore...');
+                                            const photoToRetrySave = {
+                                                id: photoData.id,
+                                                name: photoData.name,
+                                                src: downloadURL,
+                                                date: firebase.firestore.Timestamp.fromDate(new Date(photoData.date)),
+                                                memory: photoData.memory || ''
+                                            };
+                                            console.log('重试要保存的照片数据:', photoToRetrySave);
+                            
+                                            // 设置Firestore写入重试超时
+                                            const retryFirestoreTimeout = setTimeout(() => {
+                                                console.warn('重试保存到Firestore超时，将更新本地照片URL');
+                                                // 更新本地照片URL
+                                                updateLocalPhotoUrl(photoData.id, downloadURL);
+                                            }, 20000); // 20秒超时
+                            
+                                            photosCollection.doc(photoData.id.toString()).set(photoToRetrySave)
+                                                .then(() => {
+                                                    clearTimeout(retryFirestoreTimeout); // 清除超时
+                                                    console.log('重试保存成功! ID:', photoData.id);
+                                                    // 更新本地照片URL
+                                                    updateLocalPhotoUrl(photoData.id, downloadURL);
+                                                })
+                                                .catch(err => {
+                                                    clearTimeout(retryFirestoreTimeout); // 清除超时
+                                                    console.error('重试保存仍然失败:', err);
+                                                    // 仍然更新本地URL
+                                                    updateLocalPhotoUrl(photoData.id, downloadURL);
+                                                });
+                                        }, 3000);
+                                    } else {
+                                        // 超过重试次数，但仍更新本地URL
+                                        updateLocalPhotoUrl(photoData.id, downloadURL);
+                                    }
+                                })
                         }).catch(error => {
                             console.error('获取下载链接失败:', error);
                             console.error('错误代码:', error.code);
                             console.error('错误信息:', error.message);
+                            
+                            // 重试获取下载链接
+                            if (retryCount < MAX_RETRIES) {
+                                setTimeout(() => {
+                                    console.log('重新尝试获取下载链接...');
+                                    uploadTask.snapshot.ref.getDownloadURL()
+                                        .then(url => {
+                                            console.log('重试获取链接成功:', url);
+                                            // 更新本地图片链接
+                                            updateLocalPhotoUrl(photoData.id, url);
+                                        })
+                                        .catch(err => {
+                                            console.error('重试获取链接仍然失败:', err);
+                                        });
+                                }, 3000);
+                            }
+                            // 即使无法获取链接，仍然更新本地图片
+                            console.log('将使用原始照片显示');
                         });
                     }
                 );
@@ -413,25 +895,90 @@
                 console.error('上传过程发生错误:', error);
                 // 如果发生异常，仍然显示照片（从本地存储加载）
                 loadPhotosFromLocalStorage();
+                
+                // 重试上传
+                if (retryCount < MAX_RETRIES) {
+                    setTimeout(() => {
+                        console.log(`发生异常，将在 5 秒后重试上传(第 ${retryCount + 1} 次)`);
+                        uploadPhotoToFirebase(photoData, retryCount + 1);
+                    }, 5000); // 5秒后重试
+                }
             }
         }
+
+// 更新本地照片URL
+function updateLocalPhotoUrl(photoId, newUrl) {
+    console.log('更新本地照片URL, ID:', photoId);
+    const photoIndex = photos.findIndex(p => p.id === photoId);
+    if (photoIndex !== -1) {
+        // 更新URL
+        photos[photoIndex].src = newUrl;
+        // 保存到本地存储
+        localStorage.setItem('photos', JSON.stringify(photos));
+        console.log('本地照片URL更新成功');
+        // 重新渲染照片
+        sortAndDisplayPhotos();
+    } else {
+        console.error('未找到要更新URL的照片:', photoId);
+    }
+}
         
         // 将base64转换为Blob
         function dataURItoBlob(dataURI) {
-            const byteString = atob(dataURI.split(',')[1]);
-            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
+            console.log('开始转换base64为Blob...');
+            try {
+                // 验证是否是有效的data URI
+                if (!dataURI || typeof dataURI !== 'string' || !dataURI.includes('data:')) {
+                    console.error('无效的data URI格式');
+                    throw new Error('无效的图片格式');
+                }
+                
+                // 提取MIME类型和base64数据
+                const parts = dataURI.split(',');
+                if (parts.length !== 2) {
+                    console.error('data URI格式错误: 不足两部分');
+                    throw new Error('data URI格式错误');
+                }
+                
+                const mimeMatch = parts[0].match(/:(.*?);/);
+                if (!mimeMatch || mimeMatch.length < 2) {
+                    console.error('data URI格式错误: 无法提取MIME类型');
+                    throw new Error('无法提取图片类型');
+                }
+                
+                const mimeString = mimeMatch[1];
+                console.log('图片MIME类型:', mimeString);
+                
+                // 解码base64
+                let byteString;
+                try {
+                    byteString = atob(parts[1]);
+                } catch (e) {
+                    console.error('base64解码失败:', e);
+                    throw new Error('base64解码失败');
+                }
+                
+                // 创建ArrayBuffer和Uint8Array
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                
+                // 创建Blob对象
+                const blob = new Blob([ab], {type: mimeString});
+                console.log('转换成功, Blob大小:', blob.size, 'bytes, 类型:', blob.type);
+                return blob;
+            } catch (error) {
+                console.error('将base64转换为Blob时出错:', error);
+                throw error; // 将错误向上抛出，便于调用处捕获
             }
-            
-            return new Blob([ab], {type: mimeString});
         }
         
         // 保存照片到本地存储
         function savePhotoToLocalStorage(photoData) {
+            let savedToLocalStorageSuccess = false;
             try {
                 // 获取当前存储的照片
                 let storedPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
@@ -441,14 +988,25 @@
                 
                 // 保存回本地存储
                 localStorage.setItem('photos', JSON.stringify(storedPhotos));
-                
-                // 更新照片数组并显示
-                photos.push(photoData);
-                sortAndDisplayPhotos();
-                
+                savedToLocalStorageSuccess = true;
                 console.log('照片已保存到本地存储');
             } catch (error) {
-                console.error('保存照片到本地存储失败:', error);
+                console.error('保存照片到本地存储失败 (QuotaExceededError很可能发生):', error);
+                // 即使保存到LocalStorage失败，我们仍然希望在UI上显示它
+                // 后续的Firebase上传会负责持久化存储
+            }
+
+            // 无论LocalStorage是否保存成功，都更新内存中的照片数组并显示
+            // 这样用户可以立即看到上传的图片
+            const photoExistsInMemory = photos.some(p => p.id === photoData.id);
+            if (!photoExistsInMemory) {
+                photos.push(photoData);
+            }
+            sortAndDisplayPhotos();
+            
+            if (!savedToLocalStorageSuccess) {
+                // 可以选择性地给用户一个提示，告知图片可能未完全在本地缓存
+                // console.warn('提示: 照片未能完整缓存在本地，但会尝试上传到云端。');
             }
         }
         
@@ -471,6 +1029,49 @@
                 console.error('从本地存储加载照片失败:', error);
                 photos = [];
                 sortAndDisplayPhotos();
+            }
+        }
+        
+        // 合并本地和Firestore照片
+        function mergePhotos(firebasePhotos) {
+            console.log('开始合并本地和Firestore照片...');
+            if (firebasePhotos.length > 0) {
+                console.log('从Firestore加载了', firebasePhotos.length, '张照片');
+                
+                // 获取本地照片
+                const localPhotos = JSON.parse(localStorage.getItem('photos') || '[]');
+                console.log('本地存储中有', localPhotos.length, '张照片');
+                const allPhotoIds = new Set();
+                
+                // 先添加Firestore照片
+                photos = firebasePhotos;
+                firebasePhotos.forEach(photo => allPhotoIds.add(photo.id));
+                
+                // 添加本地独有的照片
+                let localOnlyCount = 0;
+                localPhotos.forEach(photo => {
+                    if (!allPhotoIds.has(photo.id)) {
+                        console.log('发现本地独有照片:', photo.id);
+                        localOnlyCount++;
+                        photos.push({
+                            ...photo,
+                            date: new Date(photo.date)
+                        });
+                        // 尝试将本地独有照片也上传到Firestore
+                        uploadPhotoToFirebase(photo);
+                    }
+                });
+                console.log('添加了', localOnlyCount, '张本地独有照片');
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                console.log('已更新本地存储, 合计', photos.length, '张照片');
+                
+                // 排序并显示照片
+                sortAndDisplayPhotos();
+            } else {
+                console.log('Firestore中没有照片，使用本地存储');
+                loadPhotosFromLocalStorage();
             }
         }
         
@@ -644,6 +1245,232 @@ function testFirebaseRules() {
                 });
         }
         
+        // 排序并显示照片
+        function sortAndDisplayPhotos() {
+            // 排序照片
+            photos.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (currentSort === 'date-desc') {
+                    return dateB - dateA;
+                } else {
+                    return dateA - dateB;
+                }
+            });
+            
+            // 清空容器
+            const container = document.getElementById('photos-container');
+            container.innerHTML = '';
+            
+            // 显示照片
+            photos.forEach(photo => {
+                const photoCard = document.createElement('div');
+                photoCard.className = 'photo-card';
+                
+                const img = document.createElement('img');
+                img.src = photo.src;
+                img.className = 'photo-img';
+                img.alt = photo.name;
+                img.onclick = function() {
+                    openModal(photo.src);
+                };
+                
+                const dateElement = document.createElement('div');
+                dateElement.className = 'photo-date';
+                dateElement.textContent = formatDate(photo.date);
+                
+                const memoryDiv = document.createElement('div');
+                memoryDiv.className = 'photo-memory';
+                
+                const memoryText = document.createElement('p');
+                memoryText.textContent = photo.memory || '点击添加回忆...';
+                memoryText.style.cursor = 'pointer';
+                memoryText.onclick = function() {
+                    this.style.display = 'none';
+                    memoryInput.style.display = 'block';
+                    saveBtn.style.display = 'block';
+                    memoryInput.focus();
+                };
+                
+                const memoryInput = document.createElement('textarea');
+                memoryInput.className = 'photo-memory-input';
+                memoryInput.value = photo.memory || '';
+                memoryInput.placeholder = '写下这张照片的回忆...';
+                memoryInput.style.display = 'none';
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'save-memory-btn';
+                saveBtn.textContent = '保存回忆';
+                saveBtn.style.display = 'none';
+                saveBtn.onclick = function() {
+                    saveMemory(photo.id, memoryInput.value);
+                    memoryText.textContent = memoryInput.value || '点击添加回忆...';
+                    memoryInput.style.display = 'none';
+                    saveBtn.style.display = 'none';
+                    memoryText.style.display = 'block';
+                };
+                
+                memoryDiv.appendChild(memoryText);
+                memoryDiv.appendChild(memoryInput);
+                memoryDiv.appendChild(saveBtn);
+                
+                // 创建删除按钮
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '&#10005;'; // 添加一个X符号
+                deleteBtn.title = '删除照片';
+                deleteBtn.onclick = function(e) {
+                    e.stopPropagation(); // 阻止事件冲突
+                    deletePhoto(photo.id);
+                };
+                
+                photoCard.appendChild(img);
+                photoCard.appendChild(dateElement);
+                photoCard.appendChild(memoryDiv);
+                photoCard.appendChild(deleteBtn);
+                
+                container.appendChild(photoCard);
+            });
+        }
+        
+        // 格式化日期
+        function formatDate(date) {
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return new Date(date).toLocaleDateString('zh-CN', options);
+        }
+        
+        // 保存回忆
+        function saveMemory(photoId, memory) {
+            console.log('开始保存回忆, 照片ID:', photoId);
+            // 更新本地照片数据
+            const photoIndex = photos.findIndex(p => p.id === photoId);
+            if (photoIndex !== -1) {
+                photos[photoIndex].memory = memory;
+                console.log('更新了本地照片回忆');
+                
+                // 更新本地存储
+                localStorage.setItem('photos', JSON.stringify(photos));
+                console.log('回忆已保存到本地存储');
+                
+                // 如果已登录，更新Firestore
+                if (auth.currentUser) {
+                    photosCollection.doc(photoId.toString()).update({
+                        memory: memory
+                    }).then(() => {
+                        console.log('回忆已保存到Firestore');
+                    }).catch(error => {
+                        console.error('保存回忆到Firestore失败:', error);
+                        console.error('错误代码:', error.code);
+                        console.error('错误信息:', error.message);
+                    });
+                }
+            }
+        }
+        
+        // 打开模态框
+        function openModal(src) {
+            const modal = document.getElementById('modal');
+            const modalImg = document.getElementById('modal-img');
+            
+            modal.style.display = 'flex';
+            modalImg.src = src;
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // 更改排序方式
+        function changeSort(sortType) {
+            console.log('更改排序方式为:', sortType);
+            currentSort = sortType;
+            
+            // 更新排序按钮状态
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(sortType)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 重新排序和显示
+            sortAndDisplayPhotos();
+        }
+        
+        // 删除照片
+        function deletePhoto(photoId) {
+            console.log('开始删除照片, ID:', photoId);
+            
+            // 确认删除
+            if (!confirm('确定要删除这张照片吗？此操作无法撤销。')) {
+                console.log('用户取消删除');
+                return;
+            }
+            
+            // 从本地数组中删除
+            const photoIndex = photos.findIndex(p => p.id === photoId);
+            if (photoIndex === -1) {
+                console.error('未找到要删除的照片:', photoId);
+                return;
+            }
+            
+            const photoToDelete = photos[photoIndex];
+            console.log('找到要删除的照片:', photoToDelete);
+            
+            // 从数组中移除
+            photos.splice(photoIndex, 1);
+            console.log('从本地数组中删除照片成功');
+            
+            // 更新本地存储
+            localStorage.setItem('photos', JSON.stringify(photos));
+            console.log('更新本地存储成功');
+            
+            // 重新渲染照片列表
+            sortAndDisplayPhotos();
+            
+            // 如果已登录，从 Firestore 和 Storage 中删除
+            if (auth.currentUser) {
+                // 从 Firestore 中删除文档
+                photosCollection.doc(photoId.toString()).delete()
+                    .then(() => {
+                        console.log('Firestore 文档删除成功:', photoId);
+                        
+                        // 如果照片链接是来自Storage的，则删除Storage文件
+                        if (photoToDelete.src && photoToDelete.src.includes('firebasestorage.googleapis.com')) {
+                            // 从 URL 提取文件路径
+                            try {
+                                const storageRef = storage.ref(`photos/${photoId}`);
+                                storageRef.delete()
+                                    .then(() => {
+                                        console.log('Storage 文件删除成功:', photoId);
+                                    })
+                                    .catch(error => {
+                                        console.error('Storage 文件删除失败:', error);
+                                        console.error('错误代码:', error.code);
+                                        console.error('错误信息:', error.message);
+                                    });
+                            } catch (error) {
+                                console.error('处理Storage文件删除时出错:', error);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Firestore 文档删除失败:', error);
+                        console.error('错误代码:', error.code);
+                        console.error('错误信息:', error.message);
+                    });
+            }
+        }
+        
         // 点击模态框背景关闭
         window.onclick = function(event) {
             const modal = document.getElementById('modal');
@@ -651,6 +1478,24 @@ function testFirebaseRules() {
                 closeModal();
             }
         };
+        
+        
+        // 页面加载完成时的事件处理
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成');
+            
+            // 确保上传按钮监听器被设置，无论登录是否成功
+            setTimeout(function() {
+                // 如果5秒后仍未设置上传监听器，则强制设置
+                setupUploadListener();
+                console.log('确保上传按钮监听器已设置');
+                
+                // 如果图片还未加载，尝试再次加载
+                if (photos.length === 0) {
+                    loadPhotosFromLocalStorage();
+                }
+            }, 5000);
+        });
     </script>
 </body>
 </html>
