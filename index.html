@@ -285,6 +285,31 @@
         const photosCollection = firestore.collection('albums').doc(albumId).collection('photos');
         console.log('使用共享相册集合路径: albums/' + albumId + '/photos');
         
+        // 监听认证状态变化
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // 用户已登录（包括匿名用户）
+                console.log('Firebase 用户已登录 (匿名或已认证):', user.uid);
+                // 页面加载时加载并显示照片
+                loadPhotosFromFirebase();
+                // 注意: setupRealtimeListener 通常在 loadPhotosFromFirebase 成功后被调用，所以这里不需要显式调用
+            } else {
+                // 用户未登录
+                console.log('Firebase 用户未登录，尝试匿名登录...');
+                auth.signInAnonymously()
+                    .then(() => {
+                        console.log('Firebase 匿名登录成功');
+                        // 匿名登录成功后，onAuthStateChanged 会再次被触发，并进入上面的 if (user) 分支
+                    })
+                    .catch((error) => {
+                        console.error('Firebase 匿名登录失败:', error);
+                        // 即使匿名登录失败，也尝试从本地加载，或提示用户
+                        alert('无法连接到云服务，照片可能无法同步。请检查网络连接。');
+                        loadPhotosFromLocalStorage(); // 作为后备方案
+                    });
+            }
+        });
+        
         // 照片数据和排序设置
         let photos = [];
         let currentSort = 'date-desc';
